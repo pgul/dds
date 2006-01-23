@@ -183,7 +183,7 @@ void check(void)
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
       else
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
-	      inet_ntoa(*(struct in_addr *)pc->ip), pc->preflen,
+	      inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
 	      pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
     } else {
       u_long l=0;

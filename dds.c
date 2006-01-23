@@ -522,9 +522,11 @@ void debug(char *format, ...)
   va_list ap;
 
   if (!verb) return;
-  va_start(ap, format);
-  vsyslog(LOG_DEBUG, format, ap);
-  va_end(ap);
+  if (strcmp(logname, "syslog") == 0) {
+    va_start(ap, format);
+    vsyslog(LOG_DEBUG, format, ap);
+    va_end(ap);
+  }
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   fprintf(stderr, "\n");
