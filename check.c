@@ -105,19 +105,19 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, u_long src_ip, u_long dst_ip,
       po->data.used_time = curtime;
       if (po->octet == NULL) {
         po->octet = calloc(256, sizeof(struct octet));
-	debug("New entry %u\n", octets[0]);
+        debug("New entry %u\n", octets[0]);
       }
       po = &po->octet[octets[1]];
       po->data.used_time = curtime;
       if (po->octet == NULL) {
         po->octet = calloc(256, sizeof(struct octet));
-	debug("New entry %u.%u\n", octets[0], octets[1]);
+        debug("New entry %u.%u\n", octets[0], octets[1]);
       }
       po = &po->octet[octets[2]];
       po->data.used_time = curtime;
       if (po->octet == NULL) {
         po->octet = calloc(256, sizeof(struct octet));
-	debug("New entry %u.%u.%u\n", octets[0], octets[1], octets[2]);
+        debug("New entry %u.%u.%u\n", octets[0], octets[1], octets[2]);
       }
       po = &po->octet[octets[3]];
       if (pc->pps)
@@ -145,8 +145,8 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
         exec_alarm(*(u_long *)ip, 32, octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
       else
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
-	      inet_ntoa(*(struct in_addr *)ip), 32,
-	      octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
+              inet_ntoa(*(struct in_addr *)ip), 32,
+              octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
     } else {
       if (octet[i].octet) {
         check_octet(pc, octet[i].octet, level+1, ip, curtime);
@@ -183,8 +183,8 @@ void check(void)
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
       else
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
-	      inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
-	      pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
+              inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
+              pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
     } else {
       u_long l=0;
       check_octet(pc, pc->octet, 0, (unsigned char *)&l, curtime);
