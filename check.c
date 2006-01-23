@@ -150,16 +150,16 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     } else {
       if (octet[i].octet) {
         check_octet(pc, octet[i].octet, level+1, ip, curtime);
-        if (curtime-octet[i].octet->data.used_time >= expire_interval) {
+        if (curtime-octet[i].data.used_time >= expire_interval) {
           if (level==0)
             debug("Expire entry %u, unused for %u seconds\n",
-                  i, curtime-octet[i].octet->data.used_time);
+                  i, curtime-octet[i].data.used_time);
           else if (level==1) 
             debug("Expire entry %u.%u, unused for %u seconds\n",
-                  ip[0], i, curtime-octet[i].octet->data.used_time);
+                  ip[0], i, curtime-octet[i].data.used_time);
           else if (level==2) 
             debug("Expire entry %u.%u.%u, unused for %u seconds\n",
-                  ip[0], ip[1], i, curtime-octet[i].octet->data.used_time);
+                  ip[0], ip[1], i, curtime-octet[i].data.used_time);
           free(octet[i].octet);
           octet[i].octet = NULL;
         }
