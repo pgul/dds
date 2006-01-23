@@ -64,7 +64,7 @@ static void logwrite(char *format, ...)
 /* replace all occurences of substring s1 in str to s2 */
 static void chstring(char **str, char *s1, char *s2)
 {
-	char *p;
+	char *p, *newstr;
 	int l1 = strlen(s1);
 	int l2 = strlen(s2);
 	int l  = strlen(*str);
@@ -73,7 +73,9 @@ static void chstring(char **str, char *s1, char *s2)
 	while ((p=strstr(p, s1)) != NULL) {
 		if (l1<l2) {
 			l += l2-l1;
-			*str=realloc(*str, l+1);
+			newstr=realloc(*str, l+1);
+			p += (newstr-*str);
+			*str = newstr;
 		}
 		memmove(p+l2, p+l1, strlen(p+l1)+1);
 		memcpy(p, s2, l2);
