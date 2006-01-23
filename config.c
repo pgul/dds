@@ -41,8 +41,12 @@ static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
   *mask = 0xfffffffful;
   if (c=='/')
   { *pref_len = atoi(p1+1);
-    *mask<<=(32-*pref_len);
-    *mask=htonl(*mask);
+    if (*pref_len == 0)
+      *mask = 0;
+    else {
+      (*mask)<<=(32-*pref_len);
+      (*mask)=htonl(*mask);
+    }
   }
   *p1=c; p=p1;
   if ((*ip & *mask) != *ip)
