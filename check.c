@@ -143,7 +143,7 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
         exec_alarm(*(u_long *)ip, 32, octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 1);
       else if (octet[i].data.count >= (unsigned long long)pc->safelimit * (curtime - last_check))
         exec_alarm(*(u_long *)ip, 32, octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
-      else
+      else if (octet[i].data.count)
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
               inet_ntoa(*(struct in_addr *)ip), 32,
               octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
