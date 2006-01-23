@@ -103,16 +103,22 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, u_long src_ip, u_long dst_ip,
       unsigned char *octets = (unsigned char *)&local;
       po = &pc->octet[octets[0]];
       po->data.used_time = curtime;
-      if (po->octet == NULL)
+      if (po->octet == NULL) {
         po->octet = calloc(256, sizeof(struct octet));
+	debug("New entry %u\n", octets[0]);
+      }
       po = &po->octet[octets[1]];
       po->data.used_time = curtime;
-      if (po->octet == NULL)
+      if (po->octet == NULL) {
         po->octet = calloc(256, sizeof(struct octet));
+	debug("New entry %u.%u\n", octets[0], octets[1]);
+      }
       po = &po->octet[octets[2]];
       po->data.used_time = curtime;
-      if (po->octet == NULL)
+      if (po->octet == NULL) {
         po->octet = calloc(256, sizeof(struct octet));
+	debug("New entry %u.%u.%u\n", octets[0], octets[1], octets[2]);
+      }
       po = &po->octet[octets[3]];
       if (pc->pps)
         po->data.count++;
@@ -137,12 +143,25 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
         exec_alarm(*(u_long *)ip, 32, octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 1);
       else if (octet[i].data.count >= (unsigned long long)pc->safelimit * (curtime - last_check))
         exec_alarm(*(u_long *)ip, 32, octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
+      else
+        debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
+	      inet_ntoa(*(struct in_addr *)ip), 32,
+	      octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
     } else {
       if (octet[i].octet) {
         check_octet(pc, octet[i].octet, level+1, ip, curtime);
-	if (curtime-octet[i].octet->data.used_time >= expire_interval) {
+        if (curtime-octet[i].octet->data.used_time >= expire_interval) {
           free(octet[i].octet);
-	  octet[i].octet = NULL;
+          octet[i].octet = NULL;
+          if (level==0)
+            debug("Expire entry %u, unused for %u seconds\n",
+                  i, curtime-octet[i].octet->data.used_time);
+          else if (level==1) 
+            debug("Expire entry %u.%u, unused for %u seconds\n",
+                  ip[0], i, curtime-octet[i].octet->data.used_time);
+          else if (level==2) 
+            debug("Expire entry %u.%u.%u, unused for %u seconds\n",
+                  ip[0], ip[1], i, curtime-octet[i].octet->data.used_time);
         }
       }
     }
@@ -162,6 +181,10 @@ void check(void)
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 1);
       else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check))
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
+      else
+        debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
+	      inet_ntoa(*(struct in_addr *)pc->ip), pc->preflen,
+	      pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
     } else {
       u_long l=0;
       check_octet(pc, pc->octet, 0, (unsigned char *)&l, curtime);

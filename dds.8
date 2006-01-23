@@ -5,7 +5,7 @@ dds \- DoS/DDoS Detecting System
 
 .SH SYNOPSIS
 .B dds
-[\-d] [\-p] [\-r] [\-h] [\-i \fIinterface\fP] [\fI<config>\fP]
+[\-d] [\-p] [\-r] [\-v] [\-h] [\-i \fIinterface\fP] [\fI<config>\fP]
 
 .SH DESCRIPTION
 .PP
@@ -18,19 +18,22 @@ via email or by any other method.
 
 .SH OPTIONS
 .l The \fIdds\fP accepts the following options:
-.TP 8
+.TP 10
 .B -h
 Display a list of all commandline options.
-.TP 8
+.TP 10
 .B -i \fIiface\fP
 Listen specified interface (override config settings)
-.TP 8
+.TP 10
 .B -d
 Daemonize.
-.TP 8
+.TP 10
 .B -p
 Don't put the  interface into promiscuous mode.
-.TP 8
+.TP 10
+.B -v
+Increase verbouse level.
+.TP 10
 .B -r
 Reversing in/out checks. Use this switch if you want to inspect
 channel to your downlink. Traffic from you to the downlink in

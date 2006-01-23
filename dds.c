@@ -121,7 +121,7 @@ struct sll_header {
 
 long snap_traf;
 FILE *fsnap;
-int  reverse;
+int  reverse, verb;
 time_t last_check;
 static pcap_t *pk;
 static int  linktype;
@@ -138,7 +138,7 @@ static unsigned char nullmac[ETHER_ADDR_LEN] = {0, 0, 0, 0, 0, 0};
 
 void hup(int signo)
 {
-  /* fprintf(stderr, "Received signal %d\n", signo); */
+  debug("Received signal %d\n", signo);
   if (signo==SIGTERM)
   { unlink(pidfile);
     exit(0);
@@ -311,6 +311,7 @@ int usage(void)
   printf("  -d  - daemonize\n");
   printf("  -p  - do not put the interface into promiscuous mode\n");
   printf("  -r  - reverse in/out check (for work on downlink's channel)\n");
+  printf("  -v  - increase verbouse level\n");
   printf("  -i  - listen interface <iface>.\n");
   return 0;
 }
@@ -407,7 +408,7 @@ int main(int argc, char *argv[])
     saved_argv[i]=argv[i];
   confname=CONFNAME;
   daemonize=promisc=0;
-  while ((i=getopt(argc, argv, "dhpri:?")) != -1)
+  while ((i=getopt(argc, argv, "dhprvi:?")) != -1)
   {
     switch (i)
     {
@@ -415,6 +416,7 @@ int main(int argc, char *argv[])
       case 'p': promisc=1;     break;
       case 'i': piface=optarg; break;
       case 'r': reverse=1;     break;
+      case 'v': verb=1;        break;
       case 'h':
       case '?': usage(); return 1;
       default:  fprintf(stderr, "Unknown option -%c\n", (char)i);
@@ -515,31 +517,17 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-#if 0
-void warning(char *format, ...)
+void debug(char *format, ...)
 {
   va_list ap;
 
+  if (!verb) return;
   va_start(ap, format);
-  vsyslog(LOG_WARNING, format, ap);
+  vsyslog(LOG_DEBUG, format, ap);
   va_end(ap);
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   fprintf(stderr, "\n");
   va_end(ap);
 }
-
-void error(char *format, ...)
-{
-  va_list ap;
-
-  va_start(ap, format);
-  vsyslog(LOG_ERR, format, ap);
-  va_end(ap);
-  va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  fprintf(stderr, "\n");
-  va_end(ap);
-}
-#endif
 

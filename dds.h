@@ -29,7 +29,7 @@ extern time_t last_check;
 extern struct checktype *checkhead;
 extern char iface[];
 extern char logname[], snapfile[], pidfile[], alarmcmd[], noalarmcmd[];
-extern int  check_interval, expire_interval, reverse;
+extern int  check_interval, expire_interval, reverse, verb;
 extern u_char my_mac[];
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, u_long src_ip, u_long dst_ip,
@@ -38,6 +38,5 @@ void check(void);
 int  config(char *name);
 void clear_alarm(void);
 void exec_alarm(u_long ip, int preflen, u_long count, int pps, int hard);
-void warning(char *format, ...);
-void error(char *format, ...);
+void debug(char *format, ...);
 

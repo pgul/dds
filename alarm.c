@@ -84,6 +84,7 @@ static void chstring(char **str, char *s1, char *s2)
 static void run(char *cmd)
 {
 	/* do we need fork() and any security checks? */
+	debug("executing command '%s'\n", cmd);
 	system(cmd);
 }
 
@@ -142,9 +143,13 @@ void exec_alarm(u_long ip, int preflen, u_long count, int pps, int hard)
 	if (pa) {
 		/* already reported */
 		pa->set = 1;
+		debug("DoS to %s/%u still active, %s %lu\n",
+		      inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen,
+		      pps ? "pps" : "bps", count);
 		return;
 	}
-	if (!hard) return;
+	if (!hard)
+		return;
 	pa = malloc(sizeof(*pa));
 	pa->ip = ip;
 	pa->preflen = preflen;
