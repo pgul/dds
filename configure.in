@@ -1,0 +1,120 @@
+dnl $Id$
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(dds.c)
+
+dnl Checks for programs.
+AC_PROG_CC
+
+CFLAGS=
+dnl Checks for header files.
+AC_CHECK_HEADERS(sys/ioctl.h net/if_vlan_var.h net/ethernet.h)
+AC_CHECK_HEADERS(netinet/if_ether.h pcap.h getopt.h net/if_dl.h)
+case x$ac_cv_header_pcap_h in
+  xno)
+    AC_CHECK_HEADERS(pcap/pcap.h)
+    case x$ac_cv_header_pcap_pcap_h in
+      xno)
+        AC_MSG_CHECKING(for -I /usr/include/pcap needed for pcap.h)
+        OLD_CFLAGS=$CFLAGS
+        CFLAGS="$CFLAGS -I /usr/include/pcap"
+        AC_TRY_COMPILE([#include <pcap.h>],[],
+           AC_DEFINE(HAVE_PCAP_H) AC_MSG_RESULT(yes); ac_cv_header_ext_pcap_h=yes,
+           AC_MSG_RESULT(no))
+        case x$ac_cv_header_ext_pcap_h in
+          xno)
+            AC_MSG_CHECKING(for -I /usr/contrib/include needed for pcap.h)
+            CFLAGS="$OLD_CFLAGS -I /usr/contrib/include"
+            AC_TRY_COMPILE([#include <pcap.h>],[],
+             AC_DEFINE(HAVE_PCAP_H) AC_MSG_RESULT(yes); ac_cv_header_ext2_pcap_h=yes,
+             AC_MSG_RESULT(no))
+            ;;
+        esac
+        ;;
+     esac
+     ;;
+esac
+
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+
+dnl Checks for library functions.
+
+AC_CHECK_FUNCS(inet_addr)
+case x$ac_cv_func_inet_addr in
+  xno)
+    AC_MSG_CHECKING(for inet_addr in -lxnet)
+    OLD_LIBS=$LIBS
+    LIBS="$LIBS -lxnet"
+    AC_TRY_LINK([#include <arpa/inet.h>],[inet_addr("");],
+          AC_MSG_RESULT(yes), AC_MSG_RESULT(no); AC_ERROR(no inet_addr() found))
+    ;;
+esac
+
+AC_CHECK_FUNCS(daemon getifaddrs localtime_r)
+
+OLD_LIBS=$LIBS
+LIBS="$LIBS -lpcap"
+AC_MSG_CHECKING(for libpcap)
+AC_TRY_LINK([],[pcap_open_live();],AC_MSG_RESULT(yes),
+     AC_MSG_RESULT(no); AC_ERROR(no libpcap found))
+
+AC_MSG_CHECKING(for pcap_open_live_new())
+AC_TRY_LINK([],[pcap_open_live_new();],
+dnl AC_CHECK_LIB(pcap, pcap_open_live_new,
+     AC_DEFINE(HAVE_PCAP_OPEN_LIVE_NEW) AC_MSG_RESULT(yes); live_new=yes,
+     AC_MSG_RESULT(no))
+
+case x$live_new in
+  xyes)
+    OLD_CFLAGS=$CFLAGS
+    CFLAGS="$CFLAGS -Wimplicit-function-declaration -Werror"
+    AC_MSG_CHECKING(for pcap_open_live_new() proto)
+    AC_TRY_COMPILE([
+         #if defined(HAVE_PCAP_H)
+         #include <pcap.h>
+         #elif defined(HAVE_PCAP_PCAP_H)
+         #include <pcap/pcap.h>
+         #endif
+       ], [pcap_open_live_new();],
+       AC_MSG_RESULT(yes),
+       AC_DEFINE(NEED_PCAP_OPEN_LIVE_NEW_PROTO) AC_MSG_RESULT(no))
+    CFLAGS=$OLD_CFLAGS
+    OLD_CFLAGS=
+    ;;
+esac
+
+AC_MSG_CHECKING(for pkt_type in struct pcap_pkthdr)
+AC_TRY_COMPILE([
+    #if defined(HAVE_PCAP_H)
+    #include <pcap.h>
+    #elif defined(HAVE_PCAP_PCAP_H)
+    #include <pcap/pcap.h>
+    #endif
+  ], [struct pcap_pkthdr pk; pk.pkt_type;],
+  AC_DEFINE(HAVE_PKT_TYPE) AC_MSG_RESULT(yes), AC_MSG_RESULT(no))
+
+dnl Check for trunk
+AC_ARG_WITH(vlans,
+            [  --with-vlans            802.1q vlans support (default no)],
+            do_trunk=yes, do_trunk=no)
+case x$do_trunk in
+  xyes)
+    ;;
+  *)
+    AC_DEFINE(NO_TRUNK)
+    ;;
+esac
+
+dnl Set dirs
+logdir=/var/log/dds
+AC_ARG_WITH(logdir,
+     [  --with-logdir=path      log files directory (default /var/log/dds)],
+     [logdir=$withval],[])
+AC_DEFINE_UNQUOTED(LOGDIR, "$logdir")
+
+dnl Set debug flags
+AC_ARG_WITH(debug,
+     [  --with-debug            compile with debug info],
+     [CFLAGS="-g $CFLAGS"],[CFLAGS="-O3 $CFLAGS"])
+
+AC_OUTPUT(Makefile)

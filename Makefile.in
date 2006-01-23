@@ -1,0 +1,34 @@
+# $Id$
+
+CC=@CC@
+prefix=@prefix@
+COPT=-Wall -funsigned-char @DEFS@ -DCONFDIR=\"@sysconfdir@\" @CFLAGS@
+
+.c.o:
+	@echo Compiling $*.c...
+	@$(CC) -c $(COPT) -o $*.o $*.c
+
+SRCS=dds.c check.c config.c alarm.c
+OBJS=${SRCS:.c=.o}
+
+all:	dds
+
+dds:	${OBJS}
+	@echo Linking $@...
+	@gcc $(COPT) @LDFLAGS@ -o $@ ${OBJS} @LIBS@
+
+dds.o:		dds.c dds.h Makefile
+check.o:	check.c dds.h Makefile
+config.o:	config.c dds.h Makefile
+alarm.o:	alarm.c dds.h Makefile
+
+install:	all
+	install dds $(prefix)/bin
+	install dds.conf @sysconfdir@
+	[ -d $(prefix)/man/man8 ] || mkdir -p $(prefix)/man/man8
+	install -m 644 dds.8 $(prefix)/man/man8/dds.8
+
+
+clean:
+	rm -f *.o config.log config.cache config.status
+

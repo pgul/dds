@@ -1,0 +1,52 @@
+.TH DDS 8 "23 Jan 2006"
+
+.SH NAME
+dds \- DoS/DDoS Detecting System
+
+.SH SYNOPSIS
+.B dds
+[\-d] [\-p] [\-r] [\-h] [\-i \fIinterface\fP] [\fI<config>\fP]
+
+.SH DESCRIPTION
+.PP
+The \fIdds\fP is a DoS/DDoS detecting system.
+It listen the uplink interface on a PC router or monitoring port
+and collect traffic statistics. If traffic to a selected network
+or to a single host in selected network more then normal (according
+to specified in the config file rules), dds reports about this
+via email or by any other method.
+
+.SH OPTIONS
+.l The \fIdds\fP accepts the following options:
+.TP 8
+.B -h
+Display a list of all commandline options.
+.TP 8
+.B -i \fIiface\fP
+Listen specified interface (override config settings)
+.TP 8
+.B -d
+Daemonize.
+.TP 8
+.B -p
+Don't put the  interface into promiscuous mode.
+.TP 8
+.B -r
+Reversing in/out checks. Use this switch if you want to inspect
+channel to your downlink. Traffic from you to the downlink in
+this case will be checked as incoming traffic.
+
+.SH SIGNALS
+.TP 10
+.BI SIGHUP
+Causes \fIdds\fP to reread config-file.
+.TP 10
+.BI SIGUSR1
+Causes \fIdds\fP to write 100M of received traffic to snap-file.
+.TP 10
+.BI SIGINT
+Causes \fIflowd\fP to restart itself.
+
+.SH AUTHORS
+Pavel Gulchouck <gul@gul.kiev.ua>.
+
