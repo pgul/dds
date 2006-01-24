@@ -183,10 +183,11 @@ void check(void)
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 1);
       else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check))
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
-      else
+      else if (pc->count)
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
               inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
               pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
+      pc->count = 0;
     } else {
       u_long l=0;
       check_octet(pc, pc->octet, 0, (unsigned char *)&l, curtime);
