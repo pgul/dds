@@ -139,7 +139,7 @@ static unsigned char nullmac[ETHER_ADDR_LEN] = {0, 0, 0, 0, 0, 0};
 void hup(int signo)
 {
   debug("Received signal %d\n", signo);
-  if (signo==SIGTERM)
+  if (signo==SIGTERM || signo==SIGINT)
   { unlink(pidfile);
     exit(0);
   }
@@ -164,7 +164,7 @@ void hup(int signo)
       fprintf(fsnap, "\n\n----- %s\n", ctime(&curtime));
     }
   }
-  if (signo==SIGINT)
+  if (signo==SIGUSR2)
   { /* restart myself */
     setuid(0);
     pcap_close(pk);
@@ -185,6 +185,7 @@ static void switchsignals(int how)
   sigaddset(&sigset, SIGTERM);
   sigaddset(&sigset, SIGINT);
   sigaddset(&sigset, SIGUSR1);
+  sigaddset(&sigset, SIGUSR2);
   sigprocmask(how, &sigset, NULL);
 }
 
@@ -456,8 +457,9 @@ int main(int argc, char *argv[])
     switchsignals(SIG_BLOCK);
     signal(SIGHUP, hup);
     signal(SIGUSR1, hup);
-    signal(SIGINT, hup);
+    signal(SIGUSR2, hup);
     signal(SIGTERM, hup);
+    signal(SIGINT, hup);
     f=fopen(pidfile, "w");
     if (f)
     { fprintf(f, "%u\n", (unsigned)getpid());
