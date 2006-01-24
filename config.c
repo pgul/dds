@@ -182,10 +182,15 @@ incorr:
   pc->safelimit = strtoul(p, NULL, 10);
   if (pc->safelimit == 0) goto incorr;
   if (pc->pps == 0) pc->safelimit /= 8;
-  while (*p && !isspace(*p)) p++;
-  while (*p && isspace(*p)) p++;
-  if (strncmp(p, "byhost", 6) == 0)
-    pc->octet = calloc(256, sizeof(struct octet));
+  for (;;) {
+    while (*p && !isspace(*p)) p++;
+    while (*p && isspace(*p)) p++;
+    if (*p == '\0') break;
+    if (strncmp(p, "byhost", 6) == 0)
+      pc->octet = calloc(256, sizeof(struct octet));
+    else if (strncmp(p, "break", 5) == 0)
+      pc->last = 1;
+  }
   checkhead = pc;
   return 0;
 }

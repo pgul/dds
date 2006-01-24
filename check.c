@@ -125,6 +125,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, u_long src_ip, u_long dst_ip,
       else
         po->data.count += len;
     }
+    if (pc->last) break;
   }
   if (curtime - last_check >= check_interval)
     check();

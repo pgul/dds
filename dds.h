@@ -18,7 +18,7 @@ struct octet {
 
 struct checktype {
 	u_long ip, mask;
-	int preflen, pps, in, set;
+	int preflen, pps, in, last;
 	u_long limit, safelimit;
 	unsigned long long count;
 	struct octet *octet;
