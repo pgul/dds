@@ -31,6 +31,7 @@ char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval=CHECK_INTERVAL, expire_interval=EXPIRE_INTERVAL;
 char alarmcmd[1024], noalarmcmd[1024];
 uid_t uid;
+static struct checktype *checktail;
 
 static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
 { char c, *p1;
@@ -156,7 +157,6 @@ static int parse_line(char *str)
   }
   /* create structure */
   pc = calloc(1, sizeof(*pc));
-  pc->next = checkhead;
   while (*p && isspace(*p)) p++;
   if (!*p) {
 incorr:
@@ -201,7 +201,12 @@ incorr:
     else if (strncmp(p, "break", 5) == 0)
       pc->last = 1;
   }
-  checkhead = pc;
+  if (checkhead == NULL)
+    checkhead = checktail = pc;
+  else {
+    checktail->next = pc;
+    checktail = pc;
+  }
   return 0;
 }
 
@@ -264,7 +269,6 @@ static void freecheck(struct checktype *pc)
 int config(char *name)
 {
   FILE *f;
-  struct checktype *pc;
 
   if (strcmp(logname, "syslog") == 0)
     closelog();
@@ -274,11 +278,11 @@ int config(char *name)
     return -1;
   }
   /* free check list */
-  for (pc=checkhead; pc;)
+  for (checktail=checkhead; checktail;)
   {
-    pc = pc->next;
+    checktail = checktail->next;
     freecheck(checkhead);
-    checkhead = pc;
+    checkhead = checktail;
   }
   parse_file(f);
   fclose(f);
