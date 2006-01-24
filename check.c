@@ -148,6 +148,7 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
               inet_ntoa(*(struct in_addr *)ip), 32,
               octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
+      octet[i].data.count = 0;
     } else {
       if (octet[i].octet) {
         check_octet(pc, octet[i].octet, level+1, ip, curtime);
