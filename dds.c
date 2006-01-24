@@ -166,6 +166,7 @@ void hup(int signo)
   }
   if (signo==SIGINT)
   { /* restart myself */
+    setuid(0);
     pcap_close(pk);
     unlink(pidfile);
     execvp(saved_argv[0], saved_argv);
@@ -502,6 +503,12 @@ int main(int argc, char *argv[])
 // fprintf(stderr, "localnet %s, ", inet_ntoa(*(struct in_addr *)&localnet));
 // fprintf(stderr, "netmask %s\n", inet_ntoa(*(struct in_addr *)&netmask));
       switchsignals(SIG_UNBLOCK);
+      if (uid) {
+        if (setuid(uid))
+          fprintf(stderr, "setuid failed: %s\n", strerror(errno));
+        else
+          debug("Setuid to uid %d done\n", uid);
+      }
       last_check = time(NULL);
       pcap_loop(pk, -1, dopkt, NULL);
       fprintf(stderr, "pcap_loop error: %s\n", ebuf);

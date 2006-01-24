@@ -30,6 +30,7 @@ extern struct checktype *checkhead;
 extern char iface[];
 extern char logname[], snapfile[], pidfile[], alarmcmd[], noalarmcmd[];
 extern int  check_interval, expire_interval, reverse, verb;
+extern uid_t uid;
 extern u_char my_mac[];
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, u_long src_ip, u_long dst_ip,

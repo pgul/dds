@@ -10,6 +10,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <pwd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -29,6 +30,7 @@ char iface[32]=IFACE;
 char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval=CHECK_INTERVAL, expire_interval=EXPIRE_INTERVAL;
 char alarmcmd[1024], noalarmcmd[1024];
+uid_t uid;
 
 static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
 { char c, *p1;
@@ -111,6 +113,14 @@ static int parse_line(char *str)
   if (strncmp(p, "expire=", 7)==0)
   { expire_interval = atoi(p+7);
     if (expire_interval == 0) expire_interval=EXPIRE_INTERVAL;
+    return 0;
+  }
+  if (strncmp(p, "user=", 5)==0)
+  { struct passwd *pw = getpwnam(p+5);
+    if (pw)
+      uid = pw->pw_uid;
+    else
+      fprintf(stderr, "Warning: user %s unknown\n", p+5);
     return 0;
   }
   if (strncmp(p, "alarm=", 6)==0)
