@@ -253,7 +253,7 @@ static void freeoctet(struct octet *po)
 {
   int i;
 
-  for (i=0; i<265; i++)
+  for (i=0; i<256; i++)
     if (po[i].octet)
       freeoctet(po[i].octet);
   free(po);
