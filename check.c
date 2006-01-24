@@ -140,11 +140,17 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
   {
     ip[level] = (unsigned char)i;
     if (level==3) {
-      if (octet[i].data.count >= (unsigned long long)pc->limit * (curtime - last_check))
+      if (octet[i].data.count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         exec_alarm(*(u_long *)ip, 32, octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 1);
-      else if (octet[i].data.count >= (unsigned long long)pc->safelimit * (curtime - last_check))
+        debug("%s for %s/%u is %lu - DoS\n", pc->pps ? "pps" : "bps",
+              inet_ntoa(*(struct in_addr *)ip), 32,
+              octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
+      } else if (octet[i].data.count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         exec_alarm(*(u_long *)ip, 32, octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
-      else if (octet[i].data.count)
+        debug("%s for %s/%u is %lu - safe DoS\n", pc->pps ? "pps" : "bps",
+              inet_ntoa(*(struct in_addr *)ip), 32,
+              octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
+      } else if (octet[i].data.count)
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
               inet_ntoa(*(struct in_addr *)ip), 32,
               octet[i].data.count * (pc->pps ? 1 : 8) / (curtime - last_check));
@@ -179,11 +185,17 @@ void check(void)
   if (curtime == last_check) return;
   for (pc=checkhead; pc; pc=pc->next) {
     if (pc->octet == NULL) {
-      if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check))
+      if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 1);
-      else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check))
+        debug("%s for %s/%u is %lu - DoS\n", pc->pps ? "pps" : "bps",
+              inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
+              pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
+      } else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         exec_alarm(pc->ip, pc->preflen, pc->count * (pc->pps ? 1 : 8) / (curtime - last_check), pc->pps, 0);
-      else if (pc->count)
+        debug("%s for %s/%u is %lu - safe DoS\n", pc->pps ? "pps" : "bps",
+              inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
+              pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
+      } else if (pc->count)
         debug("%s for %s/%u is %lu - ok\n", pc->pps ? "pps" : "bps",
               inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
               pc->count * (pc->pps ? 1 : 8) / (curtime - last_check));
