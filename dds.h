@@ -16,9 +16,12 @@ struct octet {
 	struct octet *octet;
 };
 
+typedef enum { PPS, BPS, SYN } cp_type;
+
 struct checktype {
 	u_long ip, mask;
-	int preflen, pps, in, last;
+	int preflen, in, last, byport;
+	cp_type checkpoint;
 	u_long limit, safelimit;
 	unsigned long long count;
 	struct octet *octet;
@@ -33,11 +36,11 @@ extern int  check_interval, expire_interval, reverse, verb;
 extern uid_t uid;
 extern u_char my_mac[];
 
-void add_pkt(u_char *src_mac, u_char *dst_mac, u_long src_ip, u_long dst_ip,
-              u_long len, int in);
+void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in);
 void check(void);
 int  config(char *name);
 void clear_alarm(void);
-void exec_alarm(u_long ip, int preflen, u_long count, int pps, int hard);
+void exec_alarm(u_long ip, int preflen, u_long count, cp_type cp, int in, int hard);
+char *cp2str(cp_type cp);
 void debug(char *format, ...);
 

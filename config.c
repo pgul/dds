@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <pwd.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #ifdef HAVE_NET_ETHERNET_H
@@ -165,9 +166,11 @@ incorr:
     return 0;
   }
   if (strncmp(p, "pps", 3)==0)
-    pc->pps = 1;
+    pc->checkpoint = PPS;
   else if (strncmp(p, "bps", 3)==0)
-    pc->pps = 0;
+    pc->checkpoint = PPS;
+  else if (strncmp(p, "syn", 3)==0)
+    pc->checkpoint = SYN;
   else
     goto incorr;
   while (*p && !isspace(*p)) p++;
@@ -186,12 +189,12 @@ incorr:
   while (*p && isspace(*p)) p++;
   pc->limit = strtoul(p, NULL, 10);
   if (pc->limit == 0) goto incorr;
-  if (pc->pps == 0) pc->limit /= 8; /* bps -> cps */
+  if (pc->checkpoint == BPS) pc->limit /= 8; /* bps -> cps */
   while (*p && !isspace(*p)) p++;
   while (*p && isspace(*p)) p++;
   pc->safelimit = strtoul(p, NULL, 10);
   if (pc->safelimit == 0) goto incorr;
-  if (pc->pps == 0) pc->safelimit /= 8;
+  if (pc->checkpoint == BPS) pc->safelimit /= 8;
   for (;;) {
     while (*p && !isspace(*p)) p++;
     while (*p && isspace(*p)) p++;

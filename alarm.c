@@ -7,13 +7,15 @@
 #include <syslog.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <arpa/inet.h>
 #include "dds.h"
 
 struct alarm
 {
 	u_long ip;
-	int preflen, pps, set;
+	int preflen, in, set;
+	cp_type checkpoint;
 	struct alarm *next;
 } *alarms;
 
@@ -90,15 +92,25 @@ static void run(char *cmd)
 	system(cmd);
 }
 
+char *cp2str(cp_type cp)
+{
+	switch (cp) {
+		case PPS: return "pps";
+		case BPS: return "bps";
+		case SYN: return "syn pps";
+	}
+	return "";
+}
+
 static void noalarm(struct alarm *pa)
 {
 	char str[64];
 
-	logwrite("DoS to %s/%u finished",
+	logwrite("DoS %s %s/%u finished", pa->in ? "to" : "from",
 	         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen);
 	if (noalarmcmd[0]) {
 		char *cmd = strdup(noalarmcmd);
-		chstring(&cmd, "%b", pa->pps ? "pps" : "bps");
+		chstring(&cmd, "%b", cp2str(pa->checkpoint));
 		snprintf(str, sizeof(str), "%s/%u",
 		         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen);
 		chstring(&cmd, "%d", str);
@@ -133,38 +145,39 @@ void clear_alarm(void)
 		pa->set = 0;
 }
 
-void exec_alarm(u_long ip, int preflen, u_long count, int pps, int hard)
+void exec_alarm(u_long ip, int preflen, u_long count, cp_type cp, int in, int hard)
 {
 	struct alarm *pa;
 	char str[64];
 
 	/* search for this alarm */
 	for (pa = alarms; pa; pa=pa->next)
-		if (pa->ip == ip && pa->preflen == preflen && pa->pps == pps)
+		if (pa->ip == ip && pa->preflen == preflen && pa->checkpoint == cp && pa->in == in)
 			break;
 	if (pa) {
 		/* already reported */
 		pa->set = 1;
 		debug("DoS to %s/%u still active, %s %lu\n",
 		      inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen,
-		      pps ? "pps" : "bps", count);
+		      cp2str(pa->checkpoint), count);
 		return;
 	}
 	if (!hard)
 		return;
 	pa = malloc(sizeof(*pa));
+	pa->in = in;
 	pa->ip = ip;
 	pa->preflen = preflen;
-	pa->pps = pps;
+	pa->checkpoint = cp;
 	pa->set = 1;
 	pa->next = alarms;
 	alarms = pa;
-	logwrite("DoS to %s/%u: %lu %s", 
+	logwrite("DoS %s %s/%u: %lu %s", pa->in ? "to" : "from",
 	         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen,
-		 count, pps ? "pps" : "bps");
+		 count, cp2str(cp));
 	if (alarmcmd[0]) {
 		char *cmd = strdup(alarmcmd);
-		chstring(&cmd, "%b", pa->pps ? "pps" : "bps");
+		chstring(&cmd, "%b", cp2str(pa->checkpoint));
 		snprintf(str, sizeof(str), "%s/%u",
 		         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen);
 		chstring(&cmd, "%d", str);

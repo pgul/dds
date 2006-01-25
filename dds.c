@@ -272,8 +272,7 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
     dst_mac = (u_char *)&eth_hdr->ether_dhost;
   } else
     src_mac = dst_mac = NULL;
-  add_pkt(src_mac, dst_mac,
-           *(u_long *)&(ip_hdr->ip_src), *(u_long *)&(ip_hdr->ip_dst),
+  add_pkt(src_mac, dst_mac, ip_hdr,
            hdr->len-(eth_hdr ? ((char *)ip_hdr - (char *)eth_hdr) : 0), in);
 dopkt_end:
   switchsignals(SIG_UNBLOCK);
