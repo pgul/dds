@@ -6,11 +6,12 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in_systm.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
 #else
@@ -97,6 +98,7 @@ char *printip(unsigned char *ip, int preflen, by_type by, int in)
 static char *printoctets(unsigned char *octets, int length)
 {
   static char stroctets[64];
+  int i;
 
   stroctets[0] = '\0';
   for (i=0; i<length; i++)

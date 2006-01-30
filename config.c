@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <pwd.h>
+#include <netinet/in_systm.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
