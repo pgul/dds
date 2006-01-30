@@ -105,6 +105,19 @@ case x$do_trunk in
     ;;
 esac
 
+dnl check for struct tcphdr fields
+AC_MSG_CHECKING(for th_sport in struct tcphdr)
+AC_TRY_COMPILE([
+    #include <sys/types.h>
+    #include <netinet/tcp.h>
+    ], [struct tcphdr th; th.th_sport;],
+    AC_MSG_RESULT(yes),
+    AC_DEFINE_UNQUOTED(th_sport, source)
+    AC_DEFINE_UNQUOTED(th_dport, dest)
+    AC_DEFINE_UNQUOTED(uh_sport, source)
+    AC_DEFINE_UNQUOTED(uh_dport, dest)
+    AC_MSG_RESULT(no))
+
 dnl Set dirs
 logdir=/var/log/dds
 AC_ARG_WITH(logdir,

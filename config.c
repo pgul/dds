@@ -179,8 +179,6 @@ incorr:
     pc->in = 1;
   else if (strncmp(p, "out", 3) == 0)
     pc->in = 0;
-  else if (strncmp(p, "any", 3) == 0)
-    pc->in = -1;
   else goto incorr;
   while (*p && !isspace(*p)) p++;
   while (*p && isspace(*p)) p++;
@@ -199,8 +197,14 @@ incorr:
     while (*p && !isspace(*p)) p++;
     while (*p && isspace(*p)) p++;
     if (*p == '\0') break;
-    if (strncmp(p, "byhost", 6) == 0)
-      pc->octet = calloc(256, sizeof(struct octet));
+    if (strncmp(p, "bysrc", 6) == 0)
+      pc->by = BYSRC;
+    else if (strncmp(p, "bydst", 6) == 0)
+      pc->by = BYDST;
+    else if (strncmp(p, "bysrcdst", 6) == 0)
+      pc->by = BYSRCDST;
+    else if (strncmp(p, "bydstport", 6) == 0)
+      pc->by = BYDSTPORT;
     else if (strncmp(p, "break", 5) == 0)
       pc->last = 1;
   }

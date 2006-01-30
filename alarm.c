@@ -13,9 +13,10 @@
 
 struct alarm
 {
-	u_long ip;
+	unsigned char ip[8];
 	int preflen, in, set;
 	cp_type checkpoint;
+	by_type by;
 	struct alarm *next;
 } *alarms;
 
@@ -37,7 +38,7 @@ static void logwrite(char *format, ...)
 	struct tm tm1;
 #endif
 	char *month[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 	
 	if (strcmp(logname, "syslog") == 0) {
 		va_start(ap, format);
@@ -88,7 +89,7 @@ static void chstring(char **str, char *s1, char *s2)
 static void run(char *cmd)
 {
 	/* do we need fork() and any security checks? */
-	debug("executing command '%s'\n", cmd);
+	debug(1, "executing command '%s'\n", cmd);
 	system(cmd);
 }
 
@@ -106,13 +107,12 @@ static void noalarm(struct alarm *pa)
 {
 	char str[64];
 
-	logwrite("DoS %s %s/%u finished", pa->in ? "to" : "from",
-	         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen);
+	logwrite("DoS %s %s finished", pa->in ? "to" : "from",
+	         printip(pa->ip, pa->preflen, pa->by, pa->in));
 	if (noalarmcmd[0]) {
 		char *cmd = strdup(noalarmcmd);
 		chstring(&cmd, "%b", cp2str(pa->checkpoint));
-		snprintf(str, sizeof(str), "%s/%u",
-		         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen);
+		strncpy(str, printip(pa->ip, pa->preflen, pa->by, pa->in), sizeof(str)-1);
 		chstring(&cmd, "%d", str);
 		run(cmd);
 		free(cmd);
@@ -145,41 +145,43 @@ void clear_alarm(void)
 		pa->set = 0;
 }
 
-void exec_alarm(u_long ip, int preflen, u_long count, cp_type cp, int in, int hard)
+void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc, int hard)
 {
 	struct alarm *pa;
 	char str[64];
+	int len;
 
+	len = length(pc->by);
 	/* search for this alarm */
 	for (pa = alarms; pa; pa=pa->next)
-		if (pa->ip == ip && pa->preflen == preflen && pa->checkpoint == cp && pa->in == in)
+		if (pa->preflen == pc->preflen && pa->checkpoint == pc->checkpoint && pa->by == pc->by && pa->in == pc->in && memcmp(pa->ip, ip, len) == 0)
 			break;
 	if (pa) {
 		/* already reported */
 		pa->set = 1;
-		debug("DoS to %s/%u still active, %s %lu\n",
-		      inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen,
+		debug(1, "DoS %s %s still active, %s %lu\n", pa->in ? "to":"from",
+		      printip(pa->ip, pa->preflen, pa->by, pa->in),
 		      cp2str(pa->checkpoint), count);
 		return;
 	}
 	if (!hard)
 		return;
 	pa = malloc(sizeof(*pa));
-	pa->in = in;
-	pa->ip = ip;
-	pa->preflen = preflen;
-	pa->checkpoint = cp;
+	pa->in = pc->in;
+	memcpy(pa->ip, ip, len);
+	pa->preflen = pc->preflen;
+	pa->checkpoint = pc->checkpoint;
+	pa->by = pc->by;
 	pa->set = 1;
 	pa->next = alarms;
 	alarms = pa;
-	logwrite("DoS %s %s/%u: %lu %s", pa->in ? "to" : "from",
-	         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen,
-		 count, cp2str(cp));
+	logwrite("DoS %s %s: %lu %s", pa->in ? "to" : "from",
+	         printip(pa->ip, pa->preflen, pa->by, pa->in),
+	         count, cp2str(pc->checkpoint));
 	if (alarmcmd[0]) {
 		char *cmd = strdup(alarmcmd);
 		chstring(&cmd, "%b", cp2str(pa->checkpoint));
-		snprintf(str, sizeof(str), "%s/%u",
-		         inet_ntoa(*(struct in_addr *)&pa->ip), pa->preflen);
+		strncpy(str, printip(pa->ip, pa->preflen, pa->by, pa->in), sizeof(str)-1);
 		chstring(&cmd, "%d", str);
 		snprintf(str, sizeof(str), "%lu", count);
 		chstring(&cmd, "%p", str);

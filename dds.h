@@ -17,11 +17,13 @@ struct octet {
 };
 
 typedef enum { PPS, BPS, SYN } cp_type;
+typedef enum { BYNONE, BYSRC, BYDST, BYSRCDST, BYDSTPORT } by_type;
 
 struct checktype {
 	u_long ip, mask;
-	int preflen, in, last, byport;
+	int preflen, in, last;
 	cp_type checkpoint;
+	by_type by;
 	u_long limit, safelimit;
 	unsigned long long count;
 	struct octet *octet;
@@ -40,7 +42,9 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, in
 void check(void);
 int  config(char *name);
 void clear_alarm(void);
-void exec_alarm(u_long ip, int preflen, u_long count, cp_type cp, int in, int hard);
+void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int hard);
 char *cp2str(cp_type cp);
-void debug(char *format, ...);
+char *printip(unsigned char *ip, int preflen, by_type by, int in);
+int  length(by_type by);
+void debug(int level, char *format, ...);
 

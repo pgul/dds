@@ -138,7 +138,7 @@ static unsigned char nullmac[ETHER_ADDR_LEN] = {0, 0, 0, 0, 0, 0};
 
 void hup(int signo)
 {
-  debug("Received signal %d\n", signo);
+  debug(1, "Received signal %d\n", signo);
   if (signo==SIGTERM || signo==SIGINT)
   { unlink(pidfile);
     exit(0);
@@ -417,7 +417,7 @@ int main(int argc, char *argv[])
       case 'p': promisc=1;     break;
       case 'i': piface=optarg; break;
       case 'r': reverse=1;     break;
-      case 'v': verb=1;        break;
+      case 'v': verb++;        break;
       case 'h':
       case '?': usage(); return 1;
       default:  fprintf(stderr, "Unknown option -%c\n", (char)i);
@@ -508,7 +508,7 @@ int main(int argc, char *argv[])
         if (setuid(uid))
           fprintf(stderr, "setuid failed: %s\n", strerror(errno));
         else
-          debug("Setuid to uid %d done\n", uid);
+          debug(1, "Setuid to uid %d done\n", uid);
       }
       last_check = time(NULL);
       pcap_loop(pk, -1, dopkt, NULL);
@@ -525,11 +525,11 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-void debug(char *format, ...)
+void debug(int level, char *format, ...)
 {
   va_list ap;
 
-  if (!verb) return;
+  if (level > verb) return;
   if (strcmp(logname, "syslog") == 0) {
     va_start(ap, format);
     vsyslog(LOG_DEBUG, format, ap);
