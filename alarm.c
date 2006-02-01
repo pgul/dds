@@ -12,23 +12,6 @@
 #include <arpa/inet.h>
 #include "dds.h"
 
-struct alarm
-{
-	unsigned char ip[8];
-	int preflen, in, set;
-	cp_type checkpoint;
-	by_type by;
-	struct alarm *next;
-} *alarms;
-
-void unset_alarm(void)
-{
-	struct alarm *pa;
-
-	for (pa=alarms; pa; pa=pa->next)
-		pa->set = 0;
-}
-
 static void logwrite(char *format, ...)
 {
 	FILE *f;
@@ -104,85 +87,19 @@ char *cp2str(cp_type cp)
 	return "";
 }
 
-static void noalarm(struct alarm *pa)
+void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc, int set)
 {
-	char str[64];
+	char str[64], *cmd;
 
-	logwrite("DoS %s %s finished", pa->in ? "to" : "from",
-	         printip(pa->ip, pa->preflen, pa->by, pa->in));
-	if (noalarmcmd[0]) {
-		char *cmd = strdup(noalarmcmd);
-		chstring(&cmd, "%b", cp2str(pa->checkpoint));
-		strncpy(str, printip(pa->ip, pa->preflen, pa->by, pa->in), sizeof(str)-1);
-		chstring(&cmd, "%d", str);
-		run(cmd);
-		free(cmd);
-	}
-}
-
-void clear_alarm(void)
-{
-	struct alarm *pa, *ppa;
-
-	/* remove all alarms with unset flag */
-	while (alarms && !alarms->set) {
-		noalarm(alarms);
-		pa = alarms->next;
-		free(alarms);
-		alarms = pa;
-	}
-	pa = alarms;
-	while (pa) {
-		if (pa->next && pa->next->set == 0) {
-			noalarm(pa->next);
-			ppa = pa->next->next;
-			free(pa->next);
-			pa->next = ppa;
-		} else
-			pa = pa->next;
-	}
-	/* unset all flags */
-	for (pa=alarms; pa; pa=pa->next)
-		pa->set = 0;
-}
-
-void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc, int hard)
-{
-	struct alarm *pa;
-	char str[64];
-	int len;
-
-	len = length(pc->by);
-	/* search for this alarm */
-	for (pa = alarms; pa; pa=pa->next)
-		if (pa->preflen == pc->preflen && pa->checkpoint == pc->checkpoint && pa->by == pc->by && pa->in == pc->in && memcmp(pa->ip, ip, len) == 0)
-			break;
-	if (pa) {
-		/* already reported */
-		pa->set = 1;
-		debug(1, "DoS %s %s still active, %s %lu\n", pa->in ? "to":"from",
-		      printip(pa->ip, pa->preflen, pa->by, pa->in),
-		      cp2str(pa->checkpoint), count);
-		return;
-	}
-	if (!hard)
-		return;
-	pa = malloc(sizeof(*pa));
-	pa->in = pc->in;
-	memcpy(pa->ip, ip, len);
-	pa->preflen = pc->preflen;
-	pa->checkpoint = pc->checkpoint;
-	pa->by = pc->by;
-	pa->set = 1;
-	pa->next = alarms;
-	alarms = pa;
-	logwrite("DoS %s %s: %lu %s", pa->in ? "to" : "from",
-	         printip(pa->ip, pa->preflen, pa->by, pa->in),
+	logwrite("DoS %s %s %s: %lu %s", pc->in ? "to" : "from",
+	         printip(ip, pc->preflen, pc->by, pc->in),
+	         set ? "detected" : "finished",
 	         count, cp2str(pc->checkpoint));
-	if (alarmcmd[0]) {
-		char *cmd = strdup(alarmcmd);
-		chstring(&cmd, "%b", cp2str(pa->checkpoint));
-		strncpy(str, printip(pa->ip, pa->preflen, pa->by, pa->in), sizeof(str)-1);
+	cmd = set ? alarmcmd : noalarmcmd;
+	if (cmd[0]) {
+		cmd = strdup(cmd);
+		chstring(&cmd, "%b", cp2str(pc->checkpoint));
+		strncpy(str, printip(ip, pc->preflen, pc->by, pc->in), sizeof(str)-1);
 		chstring(&cmd, "%d", str);
 		snprintf(str, sizeof(str), "%lu", count);
 		chstring(&cmd, "%p", str);

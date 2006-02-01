@@ -72,7 +72,7 @@ char *printip(unsigned char *ip, int preflen, by_type by, int in)
   str[0] = '\0';
   if (len>0 && len<4) return str;
   if (by == BYSRCDST && in == 1)
-    memcpy(&in, ip+4, 4);
+    memcpy(&ina, ip+4, 4);
   else
     memcpy(&ina, ip, 4);
   strcpy(str, inet_ntoa(ina));
@@ -186,7 +186,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
         memcpy(octetsarr+4, &remote, 4);
       } else if (pc->by == BYDSTPORT) {
         memcpy(octetsarr, (unsigned char *)&dst_ip, 4);
-        memcpy(octetsarr+2, (unsigned char *)&dst_port, 2);
+        memcpy(octetsarr+4, (unsigned char *)&dst_port, 2);
       }
       po = &pc->octet;
       for (i=0; i<len; i++)
@@ -197,13 +197,14 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
           debug(3, "New entry %s\n", printoctets(octets, i+1));
         }
         if (i == len-1) break;
-        po[0][octets[i]].data.used_time = curtime;
+        if (po[0][octets[i]].octet == NULL && i == 3) break; /* turn on detailed stats later */
+        po[0][octets[i]].used_time = curtime;
         po = &po[0][octets[i]].octet;
       }
       if (pc->checkpoint == BPS)
-        po[0]->data.count += len;
+        po[0][octets[i]].count += len;
       else
-        po[0]->data.count++;
+        po[0][octets[i]].count++;
     }
     if (pc->last) break;
   }
@@ -233,30 +234,48 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
   {
     ip[level] = (unsigned char)i;
     if (level==len-1) {
-      if (octet[i].data.count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        exec_alarm(ip, octet[i].data.count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
+      if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
+        if (!octet[i].alarmed)
+          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
         debug(1, "%s for %s is %lu - DoS\n", cp2str(pc->checkpoint),
               printip(ip, 32, pc->by, pc->in),
-              octet[i].data.count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
-      } else if (octet[i].data.count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
-        exec_alarm(ip, octet[i].data.count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
+              octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        octet[i].alarmed = 1;
+      } else if (octet[i].count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         debug(1, "%s for %s is %lu - safe DoS\n", cp2str(pc->checkpoint),
               printip(ip, 32, pc->by, pc->in),
-              octet[i].data.count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
-      } else if (octet[i].data.count)
-        debug(2, "%s for %s is %lu - ok\n", cp2str(pc->checkpoint),
-              printip(ip, 32, pc->by, pc->in),
-              octet[i].data.count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
-      octet[i].data.count = 0;
-    } else {
-      if (octet[i].octet) {
-        check_octet(pc, octet[i].octet, level+1, ip, curtime);
-        if (curtime-octet[i].data.used_time >= expire_interval) {
-          debug(3, "Expire %s, unused time %u\n", printoctets(ip, level),
-                curtime-octet[i].data.used_time);
-          free(octet[i].octet);
-          octet[i].octet = NULL;
+              octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+      } else {
+        if (octet[i].alarmed) {
+          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
+          octet[i].alarmed = 0;
         }
+        if (octet[i].count)
+          debug(2, "%s for %s is %lu - ok\n", cp2str(pc->checkpoint),
+                printip(ip, 32, pc->by, pc->in),
+                octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+      }
+      octet[i].count = 0;
+    } else if (octet[i].octet) {
+      check_octet(pc, octet[i].octet, level+1, ip, curtime);
+      if (curtime-octet[i].used_time >= expire_interval) {
+        debug(3, "Expire %s, unused time %u\n", printoctets(ip, level),
+              curtime-octet[i].used_time);
+        free(octet[i].octet);
+        octet[i].octet = NULL;
+      }
+    } else if (level==3) {
+      if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
+        debug(1, "%s for %s is %s - DoS, turning detailed stats on\n",
+              cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
+              octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        octet[i].used_time = curtime - expire_interval; /* remove on next check if no traffic */
+        octet[i].octet = calloc(256, sizeof(struct octet));
+      } else if (octet[i].count) {
+        debug(2, "%s for %s is %lu - ok (no detailed stats)\n",
+              cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
+              octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        octet[i].count = 0;
       }
     }
   }
@@ -272,26 +291,32 @@ void check(void)
   for (pc=checkhead; pc; pc=pc->next) {
     if (pc->by == BYNONE) {
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
+        if (!pc->alarmed)
+          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
         debug(1, "%s for %s/%u is %lu - DoS\n", cp2str(pc->checkpoint),
               inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
               pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        pc->alarmed = 1;
       } else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
-        exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
         debug(1, "%s for %s/%u is %lu - safe DoS\n", cp2str(pc->checkpoint),
               inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
               pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
-      } else if (pc->count)
-        debug(2, "%s for %s/%u is %lu - ok\n", cp2str(pc->checkpoint),
-              inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
-              pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+      } else {
+        if (pc->count)
+          debug(2, "%s for %s/%u is %lu - ok\n", cp2str(pc->checkpoint),
+                inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
+                pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+	if (pc->alarmed) {
+          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
+          pc->alarmed = 0;
+        }
+      }
       pc->count = 0;
     } else if (pc->octet) {
       unsigned char c[8];
       check_octet(pc, pc->octet, 0, c, curtime);
     }
   }
-  clear_alarm();
   last_check = curtime;
 }
 

@@ -169,7 +169,7 @@ incorr:
   if (strncmp(p, "pps", 3)==0)
     pc->checkpoint = PPS;
   else if (strncmp(p, "bps", 3)==0)
-    pc->checkpoint = PPS;
+    pc->checkpoint = BPS;
   else if (strncmp(p, "syn", 3)==0)
     pc->checkpoint = SYN;
   else

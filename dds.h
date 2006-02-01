@@ -10,10 +10,15 @@
 
 struct octet {
 	union {
-	  unsigned long long count;
-	  time_t used_time;
-	} data;
-	struct octet *octet;
+		struct { /* for leaf */
+			unsigned long long count;
+			int alarmed;
+		};
+		struct { /* for non-leaf */
+			time_t used_time;
+			struct octet *octet;
+		};
+	};
 };
 
 typedef enum { PPS, BPS, SYN } cp_type;
@@ -21,7 +26,7 @@ typedef enum { BYNONE, BYSRC, BYDST, BYSRCDST, BYDSTPORT } by_type;
 
 struct checktype {
 	u_long ip, mask;
-	int preflen, in, last;
+	int preflen, in, last, alarmed;
 	cp_type checkpoint;
 	by_type by;
 	u_long limit, safelimit;
@@ -41,8 +46,7 @@ extern u_char my_mac[];
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in);
 void check(void);
 int  config(char *name);
-void clear_alarm(void);
-void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int hard);
+void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int set);
 char *cp2str(cp_type cp);
 char *printip(unsigned char *ip, int preflen, by_type by, int in);
 int  length(by_type by);

@@ -421,7 +421,7 @@ int main(int argc, char *argv[])
       case 'h':
       case '?': usage(); return 1;
       default:  fprintf(stderr, "Unknown option -%c\n", (char)i);
-		usage(); return 2;
+                usage(); return 2;
     }
   }
   if (argc>optind)
@@ -490,12 +490,12 @@ int main(int argc, char *argv[])
 #endif
           && memcmp(my_mac, nullmac, ETHER_ADDR_LEN)==0)
       {
-        get_mac(iface, my_mac);
-        printf("mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x",
-                iface, my_mac[0], my_mac[1], my_mac[2], my_mac[3],
+        get_mac(piface, my_mac);
+        debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x\n",
+                piface, my_mac[0], my_mac[1], my_mac[2], my_mac[3],
                 my_mac[4], my_mac[5]);
       }
-      if (pcap_lookupnet(iface, &localnet, &netmask, ebuf))
+      if (pcap_lookupnet(piface, &localnet, &netmask, ebuf))
       { fprintf(stderr, "pcap_lookupnet error: %s\n", ebuf);
         netmask = localnet = 0;
       }
