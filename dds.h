@@ -10,14 +10,12 @@
 
 struct octet {
 	union {
-		struct { /* for leaf */
-			unsigned long long count;
-			int alarmed;
-		};
-		struct { /* for non-leaf */
-			time_t used_time;
-			struct octet *octet;
-		};
+		unsigned long long count; /* for leaf */
+		time_t used_time;         /* for non-leaf */
+	};
+	union {
+		int alarmed;              /* for leaf */
+		struct octet *octet;      /* for non-leaf */
 	};
 };
 

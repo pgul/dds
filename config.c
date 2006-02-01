@@ -257,20 +257,21 @@ static int parse_file(FILE *f)
   return 0;
 }
 
-static void freeoctet(struct octet *po)
+static void freeoctet(struct octet *po, int level, int levels)
 {
   int i;
 
-  for (i=0; i<256; i++)
-    if (po[i].octet)
-      freeoctet(po[i].octet);
+  if (level < levels)
+    for (i=0; i<256; i++)
+      if (po[i].octet)
+        freeoctet(po[i].octet, level+1, levels);
   free(po);
 }
 
 static void freecheck(struct checktype *pc)
 {
   if (pc->octet)
-    freeoctet(pc->octet);
+    freeoctet(pc->octet, 1, length(pc->by));
   free(pc);
 }
 
