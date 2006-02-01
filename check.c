@@ -266,7 +266,7 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
       }
     } else if (level==3) {
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        debug(1, "%s for %s is %s - DoS, turning detailed stats on\n",
+        debug(1, "%s for %s is %lu - DoS, turning detailed stats on\n",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
               octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
         octet[i].used_time = curtime - expire_interval; /* remove on next check if no traffic */
