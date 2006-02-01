@@ -82,7 +82,7 @@ char *printip(unsigned char *ip, int preflen, by_type by, int in)
   }
   if (len == 4) return str;
   if (by == BYDSTPORT) {
-    memcpy(&port, ip, 2);
+    memcpy(&port, ip+4, 2);
     sprintf(str+strlen(str), ":%u", ntohs(port));
     return str;
   }
