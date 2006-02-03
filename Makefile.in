@@ -25,7 +25,8 @@ alarm.o:	alarm.c dds.h Makefile
 install:	all
 	install dds $(prefix)/bin
 	[ -f @sysconfdir@/dds.conf ] || install dds.conf @sysconfdir@
-	install -d -m 644 dds.8 @mandir@/man8/dds.8
+	[ -d @mandir@/man8 ] || mkdir -p @mandir@/man8
+	install -m 644 dds.8 @mandir@/man8/dds.8
 
 
 clean:
