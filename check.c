@@ -235,16 +235,26 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     ip[level] = (unsigned char)i;
     if (level==len-1) {
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        if (!octet[i].alarmed)
+        if (!octet[i].alarmed) {
           exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
-        debug(1, "%s for %s is %lu - DoS\n", cp2str(pc->checkpoint),
-              printip(ip, 32, pc->by, pc->in),
-              octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+          debug(1, "%s for %s is %lu - DoS\n", cp2str(pc->checkpoint),
+                printip(ip, 32, pc->by, pc->in),
+                octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        }
+        else
+          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
+                   printip(ip, 32, pc->by, pc->in),
+                   octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), cp2str(pc->checkpoint));
         octet[i].alarmed = 1;
       } else if (octet[i].count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
-        debug(1, "%s for %s is %lu - safe DoS\n", cp2str(pc->checkpoint),
-              printip(ip, 32, pc->by, pc->in),
-              octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        if (octet[i].alarmed)
+          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
+                   printip(ip, 32, pc->by, pc->in),
+                   octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), cp2str(pc->checkpoint));
+        else
+          debug(1, "%s for %s is %lu - safe DoS\n", cp2str(pc->checkpoint),
+                printip(ip, 32, pc->by, pc->in),
+                octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
       } else {
         if (octet[i].alarmed) {
           exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
@@ -291,16 +301,26 @@ void check(void)
   for (pc=checkhead; pc; pc=pc->next) {
     if (pc->by == BYNONE) {
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        if (!pc->alarmed)
+        if (!pc->alarmed) {
           exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
-        debug(1, "%s for %s/%u is %lu - DoS\n", cp2str(pc->checkpoint),
-              inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
-              pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+          debug(1, "%s for %s/%u is %lu - DoS\n", cp2str(pc->checkpoint),
+                inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
+                pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        }
+        else
+          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
+                   printip((unsigned char *)&pc->ip, pc->preflen, pc->by, pc->in),
+                   pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), cp2str(pc->checkpoint));
         pc->alarmed = 1;
       } else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
-        debug(1, "%s for %s/%u is %lu - safe DoS\n", cp2str(pc->checkpoint),
-              inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
-              pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
+        if (pc->alarmed)
+          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
+                   printip((unsigned char *)&pc->ip, pc->preflen, pc->by, pc->in),
+                   pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), cp2str(pc->checkpoint));
+        else
+          debug(1, "%s for %s/%u is %lu - safe DoS\n", cp2str(pc->checkpoint),
+                inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
+                pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check));
       } else {
         if (pc->count)
           debug(2, "%s for %s/%u is %lu - ok\n", cp2str(pc->checkpoint),

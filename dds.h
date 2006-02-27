@@ -48,5 +48,6 @@ void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int set);
 char *cp2str(cp_type cp);
 char *printip(unsigned char *ip, int preflen, by_type by, int in);
 int  length(by_type by);
+void logwrite(char *format, ...);
 void debug(int level, char *format, ...);
 

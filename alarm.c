@@ -12,7 +12,7 @@
 #include <arpa/inet.h>
 #include "dds.h"
 
-static void logwrite(char *format, ...)
+void logwrite(char *format, ...)
 {
 	FILE *f;
 	va_list ap;
