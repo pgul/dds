@@ -31,7 +31,7 @@ struct checktype *checkhead=NULL;
 char iface[32]=IFACE;
 char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval=CHECK_INTERVAL, expire_interval=EXPIRE_INTERVAL;
-char alarmcmd[1024], noalarmcmd[1024];
+char alarmcmd[CMDLEN], noalarmcmd[CMDLEN];
 uid_t uid;
 static struct checktype *checktail;
 
@@ -209,6 +209,8 @@ incorr:
     else if (strncmp(p, "break", 5) == 0)
       pc->last = 1;
   }
+  strcpy(pc->alarmcmd, alarmcmd);
+  strcpy(pc->noalarmcmd, noalarmcmd);
   if (checkhead == NULL)
     checkhead = checktail = pc;
   else {

@@ -7,6 +7,7 @@
 #define PIDFILE		"/var/run/dds.pid"
 #define CHECK_INTERVAL	60
 #define EXPIRE_INTERVAL	300
+#define CMDLEN		1024
 
 struct octet {
 	union {
@@ -31,6 +32,7 @@ struct checktype {
 	unsigned long long count;
 	struct octet *octet;
 	struct checktype *next;
+	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN];
 };
 
 extern time_t last_check;

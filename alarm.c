@@ -95,7 +95,7 @@ void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc, int set)
 	         printip(ip, pc->preflen, pc->by, pc->in),
 	         set ? "detected" : "finished",
 	         count, cp2str(pc->checkpoint));
-	cmd = set ? alarmcmd : noalarmcmd;
+	cmd = set ? pc->alarmcmd : pc->noalarmcmd;
 	if (cmd[0]) {
 		cmd = strdup(cmd);
 		chstring(&cmd, "%b", cp2str(pc->checkpoint));
