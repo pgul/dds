@@ -167,8 +167,8 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
           continue;
       } else if (pc->checkpoint == UDP && ip_hdr->ip_p == IPPROTO_UDP)
       {
-        struct udphdr *th = (struct udphdr *)(ip_hdr+1);
-        dst_port = th->th_dport;
+        struct udphdr *uh = (struct udphdr *)(ip_hdr+1);
+        dst_port = uh->uh_dport;
       } else if (pc->checkpoint != ICMP || ip_hdr->ip_p != IPPROTO_ICMP)
         continue;
     }
