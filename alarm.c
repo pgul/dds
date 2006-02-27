@@ -80,9 +80,11 @@ static void run(char *cmd)
 char *cp2str(cp_type cp)
 {
 	switch (cp) {
-		case PPS: return "pps";
-		case BPS: return "bps";
-		case SYN: return "syn pps";
+		case PPS:  return "pps";
+		case BPS:  return "bps";
+		case SYN:  return "syn pps";
+		case UDP:  return "udp pps";
+		case ICMP: return "icmp pps";
 	}
 	return "";
 }

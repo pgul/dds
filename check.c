@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
 #else
@@ -146,24 +147,32 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
       continue;
     if ((local & pc->mask) != pc->ip)
       continue;
-    if (pc->checkpoint == SYN || pc->by == BYDSTPORT)
+    if (pc->checkpoint == SYN || pc->checkpoint == ICMP ||
+        pc->checkpoint == UDP || pc->by == BYDSTPORT)
     {
       if (ip_hdr->ip_p == IPPROTO_TCP)
       {
         struct tcphdr *th = (struct tcphdr *)(ip_hdr+1);
+        if (pc->checkpoint == UDP || pc->checkpoint == ICMP) continue;
         dst_port = th->th_dport;
         if (pc->checkpoint == SYN) {
 #ifdef TH_SYN
           int flags = th->th_flags;
           if ((flags & TH_SYN) == 0 || (flags & TH_ACK) != 0)
 #else
-          if (th->syn && !th->ack)
+          if (th->syn==0 || th->ack)
 #endif
             continue;
-        }
-      } else
+        } else if (pc->checkpoint == UDP || pc->checkpoint == ICMP)
+          continue;
+      } else if (pc->checkpoint == UDP && ip_hdr->ip_p == IPPROTO_UDP)
+      {
+        struct udphdr *th = (struct udphdr *)(ip_hdr+1);
+        dst_port = th->th_dport;
+      } else if (pc->checkpoint != ICMP || ip_hdr->ip_p != IPPROTO_ICMP)
         continue;
     }
+
     if (pc->by == BYNONE)
     {
       if (pc->checkpoint == BPS)

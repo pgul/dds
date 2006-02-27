@@ -172,6 +172,10 @@ incorr:
     pc->checkpoint = BPS;
   else if (strncmp(p, "syn", 3)==0)
     pc->checkpoint = SYN;
+  else if (strncmp(p, "udp", 3)==0)
+    pc->checkpoint = UDP;
+  else if (strncmp(p, "icmp", 4)==0)
+    pc->checkpoint = ICMP;
   else
     goto incorr;
   while (*p && !isspace(*p)) p++;
@@ -204,8 +208,13 @@ incorr:
       pc->by = BYDST;
     else if (strncmp(p, "bysrcdst", 6) == 0)
       pc->by = BYSRCDST;
-    else if (strncmp(p, "bydstport", 6) == 0)
+    else if (strncmp(p, "bydstport", 6) == 0) {
       pc->by = BYDSTPORT;
+      if (pc->checkpoint == ICMP) {
+        printf("bydstport selector is senseless for icmp traffic\n");
+        pc->by = BYNONE;
+      }
+    }
     else if (strncmp(p, "break", 5) == 0)
       pc->last = 1;
   }

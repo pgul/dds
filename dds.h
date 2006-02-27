@@ -20,7 +20,7 @@ struct octet {
 	};
 };
 
-typedef enum { PPS, BPS, SYN } cp_type;
+typedef enum { PPS, BPS, SYN, UDP, ICMP } cp_type;
 typedef enum { BYNONE, BYSRC, BYDST, BYSRCDST, BYDSTPORT } by_type;
 
 struct checktype {
