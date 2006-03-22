@@ -105,6 +105,7 @@ void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc, int set)
 		chstring(&cmd, "%d", str);
 		snprintf(str, sizeof(str), "%lu", count);
 		chstring(&cmd, "%p", str);
+		chstring(&cmd, "%t", pc->in ? "to" : "from");
 		run(cmd);
 		free(cmd);
 	}
