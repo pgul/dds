@@ -5,6 +5,7 @@
 #include <sys/param.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -204,6 +205,11 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
         {
           *po = calloc(256, sizeof(struct octet));
           debug(3, "New entry %s\n", printoctets(octets, i+1));
+          if (*po == NULL) {
+            logwrite("Cannot allocate memory: %s", strerror(errno));
+            fprintf(stderr, "Cannot allocate memory\n");
+            exit(4);
+          }
         }
         if (i == len-1) break;
         if (po[0][octets[i]].octet == NULL && i == 3) break; /* turn on detailed stats later */
