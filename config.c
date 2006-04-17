@@ -31,7 +31,7 @@ struct checktype *checkhead=NULL;
 char iface[32]=IFACE;
 char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval=CHECK_INTERVAL, expire_interval=EXPIRE_INTERVAL;
-char alarmcmd[CMDLEN], noalarmcmd[CMDLEN];
+char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 uid_t uid;
 static struct checktype *checktail;
 
@@ -148,6 +148,17 @@ static int parse_line(char *str)
       strncpy(noalarmcmd, p, sizeof(noalarmcmd)-1);
     return 0;
   }
+  if (strncmp(p, "contalarm=", 10)==0)
+  {
+    p+=10;
+    if (*p == '\"' && p[1]) {
+      strncpy(contalarmcmd, p+1, sizeof(contalarmcmd)-1);
+      p=contalarmcmd+strlen(contalarmcmd)-1;
+      if (*p == '\"') *p='\0';
+    } else
+      strncpy(contalarmcmd, p, sizeof(contalarmcmd)-1);
+    return 0;
+  }
   for (p=str; *p && !isspace(*p); p++);
   if (*p) *p++='\0';
   if (strchr(str, '=')) return 0; /* keyword */
@@ -220,6 +231,7 @@ incorr:
   }
   strcpy(pc->alarmcmd, alarmcmd);
   strcpy(pc->noalarmcmd, noalarmcmd);
+  strcpy(pc->contalarmcmd, contalarmcmd);
   if (checkhead == NULL)
     checkhead = checktail = pc;
   else {
@@ -235,6 +247,7 @@ static int parse_file(FILE *f)
   char str[256];
   char *p, *p1;
 
+  alarmcmd[0] = noalarmcmd[0] = contalarmcmd[0] = '\0';
   while (fgets(str, sizeof(str), f))
   {
     if (strncasecmp(str, "@include", 8) == 0 && isspace(str[8]))

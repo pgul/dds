@@ -203,8 +203,8 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
       {
         if (*po == NULL)
         {
-          *po = calloc(256, sizeof(struct octet));
           debug(3, "New entry %s\n", printoctets(octets, i+1));
+          *po = calloc(256, sizeof(struct octet));
           if (*po == NULL) {
             logwrite("Cannot allocate memory: %s", strerror(errno));
             fprintf(stderr, "Cannot allocate memory\n");
@@ -250,22 +250,14 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     ip[level] = (unsigned char)i;
     if (level==len-1) {
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        if (!octet[i].alarmed) {
+        if (!octet[i].alarmed)
           exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
-          debug(1, "%s for %s is %lu - DoS\n", cp2str(pc->checkpoint),
-                printip(ip, 32, pc->by, pc->in),
-                (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
-        }
         else
-          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
-                   printip(ip, 32, pc->by, pc->in),
-                   (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)), cp2str(pc->checkpoint));
+          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
         octet[i].alarmed = 1;
       } else if (octet[i].count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         if (octet[i].alarmed)
-          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
-                   printip(ip, 32, pc->by, pc->in),
-                   (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)), cp2str(pc->checkpoint));
+          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
         else
           debug(1, "%s for %s is %lu - safe DoS\n", cp2str(pc->checkpoint),
                 printip(ip, 32, pc->by, pc->in),
@@ -295,7 +287,11 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
               (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
         octet[i].used_time = curtime - expire_interval; /* remove on next check if no traffic */
-        octet[i].octet = calloc(256, sizeof(struct octet));
+        if ((octet[i].octet = calloc(256, sizeof(struct octet))) == NULL) {
+          logwrite("Cannot allocate memory: %s", strerror(errno));
+          fprintf(stderr, "Cannot allocate memory\n");
+          exit(4);
+        }
       } else if (octet[i].count) {
         debug(2, "%s for %s is %lu - ok (no detailed stats)\n",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
@@ -316,22 +312,14 @@ void check(void)
   for (pc=checkhead; pc; pc=pc->next) {
     if (pc->by == BYNONE) {
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        if (!pc->alarmed) {
+        if (!pc->alarmed)
           exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
-          debug(1, "%s for %s/%u is %lu - DoS\n", cp2str(pc->checkpoint),
-                inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
-                (unsigned long)(pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
-        }
         else
-          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
-                   printip((unsigned char *)&pc->ip, pc->preflen, pc->by, pc->in),
-                   (unsigned long)(pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)), cp2str(pc->checkpoint));
+          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
         pc->alarmed = 1;
       } else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         if (pc->alarmed)
-          logwrite("DoS %s %s: %lu %s", pc->in ? "to" : "from",
-                   printip((unsigned char *)&pc->ip, pc->preflen, pc->by, pc->in),
-                   (unsigned long)(pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)), cp2str(pc->checkpoint));
+          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
         else
           debug(1, "%s for %s/%u is %lu - safe DoS\n", cp2str(pc->checkpoint),
                 inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,

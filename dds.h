@@ -32,13 +32,14 @@ struct checktype {
 	unsigned long long count;
 	struct octet *octet;
 	struct checktype *next;
-	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN];
+	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 };
 
 extern time_t last_check;
 extern struct checktype *checkhead;
 extern char iface[];
-extern char logname[], snapfile[], pidfile[], alarmcmd[], noalarmcmd[];
+extern char logname[], snapfile[], pidfile[];
+extern char alarmcmd[], noalarmcmd[], contalarmcmd[];
 extern int  check_interval, expire_interval, reverse, verb;
 extern uid_t uid;
 extern u_char my_mac[];
