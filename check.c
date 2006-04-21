@@ -41,7 +41,7 @@ static void putsnap(int in, u_char *src_mac, u_char *dst_mac,
   sprintf(str_dst_ip, "%u.%u.%u.%u", ((char *)&dst_ip)[0],
      ((char *)&dst_ip)[1], ((char *)&dst_ip)[2], ((char *)&dst_ip)[3]);
   if (dst_mac)
-    fprintf(fsnap, "%s %s->%s %u bytes (mac %02x%02x.%02x%02x.%02x%02x)",
+    fprintf(fsnap, "%s %s->%s %u bytes (mac %02x%02x.%02x%02x.%02x%02x)\n",
       (in ? "<-" : "->"), str_src_ip, str_dst_ip, len,
       remote_mac[0], remote_mac[1], remote_mac[2],
       remote_mac[3], remote_mac[4], remote_mac[5]);
