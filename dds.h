@@ -1,13 +1,13 @@
 #define CONFNAME	CONFDIR "/dds.conf"
 #define IFACE		"all"
 #define MTU		2048
-#define MYMAC		0x00,0x00,0x00,0x00,0x00,0x00
 #define LOGNAME		LOGDIR "/dds.log"
 #define SNAPFILE	LOGDIR "/snap"
 #define PIDFILE		"/var/run/dds.pid"
 #define CHECK_INTERVAL	60
 #define EXPIRE_INTERVAL	300
 #define CMDLEN		1024
+#define MAXMYMACS	128
 
 struct octet {
 	union {
@@ -42,9 +42,9 @@ extern char logname[], snapfile[], pidfile[];
 extern char alarmcmd[], noalarmcmd[], contalarmcmd[];
 extern int  check_interval, expire_interval, reverse, verb;
 extern uid_t uid;
-extern u_char my_mac[];
+extern u_char *my_mac[MAXMYMACS];
 
-void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in);
+void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in, int vlan);
 void check(void);
 int  config(char *name);
 void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int set);

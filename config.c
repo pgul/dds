@@ -72,6 +72,7 @@ static int parse_line(char *str)
 {
   char *p;
   struct checktype *pc;
+  int i;
 
   p=strchr(str, '\n');
   if (p) *p='\0';
@@ -89,7 +90,15 @@ static int parse_line(char *str)
     m[0] = htons(m[0]);
     m[1] = htons(m[1]);
     m[2] = htons(m[2]);
-    memcpy(my_mac, m, ETHER_ADDR_LEN);
+    for (i=0; i<MAXMYMACS; i++)
+      if (my_mac[i] == NULL) break;
+    if (i == MAXMYMACS)
+      printf("To many mymacs (%d max), extra ignored\n", MAXMYMACS);
+    else {
+      my_mac[i] = malloc(ETHER_ADDR_LEN);
+      memcpy(my_mac[i], m, ETHER_ADDR_LEN);
+      if (i < MAXMYMACS-1) my_mac[i+1] = NULL;
+    }
     return 0;
   }
   if (strncmp(p, "iface=", 6)==0)
@@ -302,6 +311,7 @@ static void freecheck(struct checktype *pc)
 int config(char *name)
 {
   FILE *f;
+  int i;
 
   if (strcmp(logname, "syslog") == 0)
     closelog();
@@ -316,6 +326,12 @@ int config(char *name)
     checktail = checktail->next;
     freecheck(checkhead);
     checkhead = checktail;
+  }
+  for (i=0; i<MAXMYMACS; i++)
+  {
+    if (my_mac[i] == NULL) break;
+    free(my_mac[i]);
+    my_mac[i] = NULL;
   }
   parse_file(f);
   fclose(f);

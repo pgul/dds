@@ -25,26 +25,31 @@
 #endif
 #include "dds.h"
 
-u_char my_mac[ETHER_ADDR_LEN]={MYMAC};
+u_char *my_mac[MAXMYMACS];
 static u_char broadcast[ETHER_ADDR_LEN]={0xff,0xff,0xff,0xff,0xff,0xff};
 extern long snap_traf;
 extern FILE *fsnap;
 
 static void putsnap(int in, u_char *src_mac, u_char *dst_mac, 
-                    u_long src_ip, u_long dst_ip, int len)
+                    u_long src_ip, u_long dst_ip, int len, int vlan)
 {
-  u_char *remote_mac=in ? src_mac : dst_mac;
-  char str_src_ip[20], str_dst_ip[20];
+  char str_src_ip[20], str_dst_ip[20], pvlan[20];
 
   sprintf(str_src_ip, "%u.%u.%u.%u", ((char *)&src_ip)[0],
      ((char *)&src_ip)[1], ((char *)&src_ip)[2], ((char *)&src_ip)[3]);
   sprintf(str_dst_ip, "%u.%u.%u.%u", ((char *)&dst_ip)[0],
      ((char *)&dst_ip)[1], ((char *)&dst_ip)[2], ((char *)&dst_ip)[3]);
+  if (vlan)
+    sprintf(pvlan, " vlan %d", vlan);
+  else
+    pvlan[0] = '\0';
   if (dst_mac)
-    fprintf(fsnap, "%s %s->%s %u bytes (mac %02x%02x.%02x%02x.%02x%02x)\n",
+    fprintf(fsnap, "%s %s->%s %u bytes (%02x%02x.%02x%02x.%02x%02x->%02x%02x.%02x%02x.%02x%02x%s)\n",
       (in ? "<-" : "->"), str_src_ip, str_dst_ip, len,
-      remote_mac[0], remote_mac[1], remote_mac[2],
-      remote_mac[3], remote_mac[4], remote_mac[5]);
+      src_mac[0], src_mac[1], src_mac[2],
+      src_mac[3], src_mac[4], src_mac[5],
+      dst_mac[0], dst_mac[1], dst_mac[2],
+      dst_mac[3], dst_mac[4], dst_mac[5], pvlan);
   else
     fprintf(fsnap, 
 #ifdef HAVE_PKTTYPE
@@ -112,7 +117,7 @@ static char *printoctets(unsigned char *octets, int length)
 }
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
-             u_long len, int in)
+             u_long len, int in, int vlan)
 {
   u_long local=0, remote=0;
   time_t curtime;
@@ -123,24 +128,33 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
 
   if (dst_mac)
   {
-    if (memcmp(src_mac, my_mac, ETHER_ADDR_LEN)==0)
-    { /* outgoing packet */
-      in =     reverse ? 1 : 0;
-      remote = reverse ? src_ip : dst_ip;
-      local =  reverse ? dst_ip : src_ip;
+    int i;
+
+    for (i=0; i<MAXMYMACS; i++)
+    {
+      if (my_mac[i] == NULL)
+        /* left packet */
+        return;
+      if (memcmp(src_mac, my_mac[i], ETHER_ADDR_LEN)==0)
+      { /* outgoing packet */
+        in =     reverse ? 1 : 0;
+        remote = reverse ? src_ip : dst_ip;
+        local =  reverse ? dst_ip : src_ip;
+        break;
+      }
+      else if (memcmp(dst_mac, my_mac[i], ETHER_ADDR_LEN)==0 ||
+               (i==0 && memcmp(dst_mac, broadcast, ETHER_ADDR_LEN)==0))
+      { /* incoming packet */
+        in =     reverse ? 0 : 1;
+        remote = reverse ? dst_ip : src_ip;
+        local =  reverse ? src_ip : dst_ip;
+        break;
+      }
     }
-    else if (memcmp(dst_mac, my_mac, ETHER_ADDR_LEN)==0 ||
-             memcmp(dst_mac, broadcast, ETHER_ADDR_LEN)==0)
-    { /* incoming packet */
-      in =     reverse ? 0 : 1;
-      remote = reverse ? dst_ip : src_ip;
-      local =  reverse ? src_ip : dst_ip;
-    }
-    else
-      /* left packet */
+    if (i == MAXMYMACS)
       return;
   }
-  if (fsnap) putsnap(in, src_mac, dst_mac, src_ip, dst_ip, len);
+  if (fsnap) putsnap(in, src_mac, dst_mac, src_ip, dst_ip, len, vlan);
   curtime = time(NULL);
   for (pc=checkhead; pc; pc=pc->next)
   {
@@ -203,7 +217,9 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
       {
         if (*po == NULL)
         {
-          debug(3, "New entry %s\n", printoctets(octets, i+1));
+          if (verb >= 3)
+            debug(3, "New entry %s %s %s\n", pc->in ? "from" : "to",
+                  printoctets(octets, i+1), cp2str(pc->checkpoint));
           *po = calloc(256, sizeof(struct octet));
           if (*po == NULL) {
             logwrite("Cannot allocate memory: %s", strerror(errno));
@@ -276,8 +292,11 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     } else if (octet[i].octet) {
       check_octet(pc, octet[i].octet, level+1, ip, curtime);
       if (curtime-octet[i].used_time >= expire_interval) {
-        debug(3, "Expire %s, unused time %u\n", printoctets(ip, level),
-              curtime-octet[i].used_time);
+        if (verb >= 3)
+          debug(3, "Expire %s %s %s, unused time %u\n",
+                printoctets(ip, level+1),
+                pc->in ? "from" : "to", cp2str(pc->checkpoint),
+                curtime-octet[i].used_time);
         free(octet[i].octet);
         octet[i].octet = NULL;
       }

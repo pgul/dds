@@ -119,6 +119,8 @@ struct sll_header {
 };
 #endif
 
+static int get_mac(const char *iface, unsigned char *mac);
+
 long snap_traf;
 FILE *fsnap;
 int  reverse, verb;
@@ -134,7 +136,7 @@ static char *dlt[] = {
  "null", "ethernet", "eth3m", "ax25", "pronet", "chaos",
  "ieee802", "arcnet", "slip", "ppp", "fddi", "llc/snap atm", "raw ip",
  "bsd/os slip", "bsd/os ppp", "lane 802.3", "atm" };
-static unsigned char nullmac[ETHER_ADDR_LEN] = {0, 0, 0, 0, 0, 0};
+static char *piface=NULL;
 
 void hup(int signo)
 {
@@ -144,10 +146,21 @@ void hup(int signo)
     exit(0);
   }
   if (signo==SIGHUP)
+  {
     if (config(confname))
     { fprintf(stderr, "Config error!\n");
       exit(1);
     }
+    if (my_mac[0] == NULL)
+    {
+      my_mac[0] = malloc(ETHER_ADDR_LEN);
+      get_mac(piface, my_mac[0]);
+      my_mac[1] = NULL;
+      debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x\n",
+            piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
+            my_mac[0][4], my_mac[0][5]);
+    }
+  }
   if (signo==SIGUSR1)
   { /* snap 100M of traffic */
     int wassnap=1;
@@ -273,7 +286,7 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
   } else
     src_mac = dst_mac = NULL;
   add_pkt(src_mac, dst_mac, ip_hdr,
-           hdr->len-(eth_hdr ? ((char *)ip_hdr - (char *)eth_hdr) : 0), in);
+         hdr->len-(eth_hdr ? ((char *)ip_hdr - (char *)eth_hdr) : 0), in, vlan);
 dopkt_end:
   switchsignals(SIG_UNBLOCK);
 }
@@ -403,7 +416,6 @@ int main(int argc, char *argv[])
   char ebuf[PCAP_ERRBUF_SIZE]="";
   int i, daemonize, promisc;
   FILE *f;
-  char *piface=NULL;
 
   for (i=0; i<=argc && i<sizeof(saved_argv)/sizeof(saved_argv[0]); i++)
     saved_argv[i]=argv[i];
@@ -488,12 +500,14 @@ int main(int argc, char *argv[])
 #else
       if (linktype == DLT_EN10MB
 #endif
-          && memcmp(my_mac, nullmac, ETHER_ADDR_LEN)==0)
+          && my_mac[0] == NULL)
       {
-        get_mac(piface, my_mac);
+        my_mac[0] = malloc(ETHER_ADDR_LEN);
+        get_mac(piface, my_mac[0]);
+        my_mac[1] = NULL;
         debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x\n",
-                piface, my_mac[0], my_mac[1], my_mac[2], my_mac[3],
-                my_mac[4], my_mac[5]);
+                piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
+                my_mac[0][4], my_mac[0][5]);
       }
       if (pcap_lookupnet(piface, &localnet, &netmask, ebuf))
       { fprintf(stderr, "pcap_lookupnet error: %s\n", ebuf);
