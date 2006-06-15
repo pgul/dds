@@ -280,7 +280,7 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
     src_mac = dst_mac = NULL;
   add_pkt(src_mac, dst_mac, ip_hdr,
          hdr->len-(eth_hdr ? ((char *)ip_hdr - (char *)eth_hdr) : 0),
-         in, vlan, 1, 0);
+         in, vlan, 1, 0, NULL, 0);
 dopkt_end:
   switchsignals(SIG_UNBLOCK);
 }

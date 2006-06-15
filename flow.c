@@ -13,6 +13,10 @@
 #include <netinet/udp.h>
 #include "dds.h"
 
+#ifndef max
+#define	max(a, b)	((a) > (b) ? (a) : (b))
+#endif
+
 static struct head1 {
   short unsigned int version, count;
   unsigned int uptime, curtime, curnanosec;
@@ -98,10 +102,10 @@ int bindport(char *netflow)
   return 0;
 }
 
-static void make_iphdr(struct ip *ip_hdr, u_long saddr, u_long daddr,
-          unsigned char prot, unsigned short sport, unsigned short dport,
-          unsigned char flags)
+void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
+          unsigned char prot, unsigned short dport, unsigned char flags)
 {
+  struct ip *ip_hdr = (struct ip *)iphdr;
   ip_hdr->ip_p = prot;
   ip_hdr->ip_src = *(struct in_addr *)(void *)&saddr;
   ip_hdr->ip_dst = *(struct in_addr *)(void *)&daddr;
@@ -129,7 +133,7 @@ void recv_flow(void)
   socklen_t sl;
   struct sockaddr_in remote_addr;
   char databuf[MTU];
-  char pktbuf[sizeof(struct ip)+sizeof(struct tcphdr)+sizeof(struct udphdr)];
+  char pktbuf[sizeof(struct ip)+max(sizeof(struct tcphdr),sizeof(struct udphdr))];
   struct ip *iphdr = (struct ip *)pktbuf;
   struct router_t *pr;
 
@@ -169,12 +173,12 @@ void recv_flow(void)
         input=ntohs(data1[i].input);
         output=ntohs(data1[i].output);
         make_iphdr(iphdr, data1[i].srcaddr, data1[i].dstaddr, data1[i].prot,
-                   data1[i].srcport, data1[i].dstport, data1[i].flags);
+                   data1[i].dstport, data1[i].flags);
         for (n = 0; n < pr->nuplinks; n++) {
           if (input == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data1[i].pkts), 1);
+            add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data1[i].pkts), 1, NULL, 0);
           else if (output == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data1[i].pkts), 1);
+            add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data1[i].pkts), 1, NULL, 0);
           else
             continue;
           break;
@@ -199,12 +203,12 @@ void recv_flow(void)
         input=ntohs(data5[i].input);
         output=ntohs(data5[i].output);
         make_iphdr(iphdr, data5[i].srcaddr, data5[i].dstaddr, data5[i].prot,
-                   data5[i].srcport, data5[i].dstport, data5[i].flags);
+                   data5[i].dstport, data5[i].flags);
         for (n = 0; n < pr->nuplinks; n++) {
           if (input == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data5[i].pkts), 1);
+            add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data5[i].pkts), 1, NULL, 0);
           else if (output == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data5[i].pkts), 1);
+            add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data5[i].pkts), 1, NULL, 0);
           else
             continue;
           break;

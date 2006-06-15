@@ -25,10 +25,24 @@
 #endif
 #include "dds.h"
 
+#ifndef max
+#define max(a, b)  ((a) > (b) ? (a) : (b))
+#define min(a, b)  ((a) < (b) ? (a) : (b))
+#endif
+
 u_char *my_mac[MAXMYMACS];
 static u_char broadcast[ETHER_ADDR_LEN]={0xff,0xff,0xff,0xff,0xff,0xff};
 extern long snap_traf;
 extern FILE *fsnap;
+struct {
+  u_long s_addr, d_addr;
+  int len;
+  int in:8;
+  unsigned int pkts:24;
+  unsigned short d_port;
+  unsigned char proto, flags;
+} *recheck_arr;
+int recheck_cur, recheck_size;
 
 static void putsnap(int flow, int in, u_char *src_mac, u_char *dst_mac, 
                     u_long src_ip, u_long dst_ip, int len, int vlan, int pkts)
@@ -121,8 +135,29 @@ static char *printoctets(unsigned char *octets, int length)
   return stroctets;
 }
 
+static void reprocess(struct checktype *pc, u_long local_ip)
+{
+  int i;
+  char pktbuf[sizeof(struct ip)+max(sizeof(struct tcphdr),sizeof(struct udphdr))];
+  struct ip *iphdr = (struct ip *)pktbuf;
+
+  if (!recheck_arr) return;
+  debug(2, "Reprocess saved queue (%u entries)", recheck_cur);
+  debug(1, "Detailize %s %s %s", cp2str(pc->checkpoint),
+        pc->in ? "to" : "from", inet_ntoa(*(struct in_addr *)&local_ip));
+  for (i=0; i<recheck_cur; i++)
+  {
+    make_iphdr(iphdr, recheck_arr[i].s_addr, recheck_arr[i].d_addr,
+             recheck_arr[i].proto, recheck_arr[i].d_port, recheck_arr[i].flags);
+    add_pkt(NULL, NULL, iphdr, recheck_arr[i].len,
+            recheck_arr[i].in, 0, recheck_arr[i].pkts, 1, pc, local_ip);
+  }
+  debug(3, "Reprocess finished");
+}
+
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
-             u_long len, int in, int vlan, int pkts, int flow)
+             u_long len, int in, int vlan, int pkts, int flow,
+             struct checktype *recheck, u_long recheck_local)
 {
   u_long local=0, remote=0;
   time_t curtime;
@@ -165,12 +200,62 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     if (i == MAXMYMACS)
       return;
   }
-  if (fsnap)
+  if (recheck && local != recheck_local) return;
+  if (fsnap && !recheck)
     putsnap(flow, in, src_mac, dst_mac, src_ip, dst_ip, len, vlan, pkts);
   curtime = time(NULL);
+  if (!recheck && (recheck_arr || recheck_size == 0))
+  { /* save for future recheck */
+    if (recheck_size == recheck_cur)
+    {
+      if (curtime - last_check <= 2)
+      {
+        if (check_interval <= 2)
+          recheck_size = recheck_size * 3 / 2;
+        else
+          recheck_size = recheck_size * check_interval / 2;
+      } else
+      {
+        recheck_size = recheck_size * check_interval / (curtime - last_check);
+        recheck_size = recheck_size * 5 / 4;
+      }
+      if (recheck_size <= recheck_cur || recheck_cur == 0)
+        recheck_size = recheck_size * 5 / 4 + 64*1024;
+      recheck_arr = realloc(recheck_arr, recheck_size * sizeof(*recheck_arr));
+      if (recheck_arr == NULL)
+        warning("Cannot allocate memory for recheck: %s (%u bytes needed)",
+                strerror(errno), recheck_size * sizeof(*recheck_arr));
+      else
+        debug(1, "recheck array reallocated to %u bytes (%u entries)",
+              recheck_size * sizeof(*recheck_arr), recheck_size);
+    }
+    if (recheck_arr)
+    {
+      recheck_arr[recheck_cur].len  = len;
+      recheck_arr[recheck_cur].pkts = pkts;
+      recheck_arr[recheck_cur].in   = in;
+      recheck_arr[recheck_cur].proto = ip_hdr->ip_p;
+      recheck_arr[recheck_cur].s_addr = *(u_long *)&ip_hdr->ip_src;
+      recheck_arr[recheck_cur].d_addr = *(u_long *)&ip_hdr->ip_dst;
+      if (ip_hdr->ip_p == IPPROTO_TCP)
+      {
+        struct tcphdr *th = (struct tcphdr *)(ip_hdr+1);
+        recheck_arr[recheck_cur].d_port = th->th_dport;
+#ifdef TH_SYN
+        recheck_arr[recheck_cur].flags = th->th_flags;
+#else
+        recheck_arr[recheck_cur].flags = th->syn ? 0x02 : 0;
+#endif
+      } else if (ip_hdr->ip_p == IPPROTO_UDP)
+        recheck_arr[recheck_cur].d_port=((struct udphdr *)(ip_hdr+1))->uh_dport;
+      recheck_cur++;
+    }
+  }
   for (pc=checkhead; pc; pc=pc->next)
   {
     if (pc->in != in && pc->in != -1)
+      continue;
+    if (recheck && pc != recheck)
       continue;
     if ((local & pc->mask) != pc->ip)
       continue;
@@ -263,7 +348,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     }
     if (pc->last) break;
   }
-  if (curtime - last_check >= check_interval)
+  if (curtime - last_check >= check_interval && !recheck)
     check();
 }
 
@@ -314,6 +399,7 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
       }
       octet[i].count = 0;
     } else if (octet[i].octet) {
+have_detailed:
       check_octet(pc, octet[i].octet, level+1, ip, curtime);
       if (curtime-octet[i].used_time >= expire_interval) {
         if (verb >= 3)
@@ -328,12 +414,16 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         debug(1, "%s for %s is %lu - DoS, turning detailed stats on",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
-              (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
+              (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / ((curtime - last_check == 0) ? 1 : curtime - last_check)));
         octet[i].used_time = curtime - expire_interval; /* remove on next check if no traffic */
         if ((octet[i].octet = calloc(256, sizeof(struct octet))) == NULL) {
           logwrite("Cannot allocate memory: %s", strerror(errno));
           fprintf(stderr, "Cannot allocate memory\n");
           exit(4);
+        }
+        if (recheck_arr) {
+          reprocess(pc, *(u_long *)ip);
+          goto have_detailed;
         }
       } else if (octet[i].count) {
         debug(2, "%s for %s is %lu - ok (no detailed stats)",
@@ -372,7 +462,7 @@ void check(void)
           debug(2, "%s for %s/%u is %lu - ok", cp2str(pc->checkpoint),
                 inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
                 (unsigned long)(pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
-	if (pc->alarmed) {
+        if (pc->alarmed) {
           exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
           pc->alarmed = 0;
         }
@@ -384,5 +474,8 @@ void check(void)
     }
   }
   last_check = curtime;
+  if (recheck_arr)
+    debug(3, "check done, %u entries saved for recheck", recheck_cur);
+  recheck_cur = 0;
 }
 

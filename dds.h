@@ -68,7 +68,9 @@ extern uid_t uid;
 extern u_char *my_mac[];
 extern struct router_t *routers;
 
-void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in, int vlan, int pkts, int flow);
+void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
+             int in, int vlan, int pkts, int flow,
+             struct checktype *recheck, u_long local_ip);
 void check(void);
 int  config(char *name);
 void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int set);
@@ -81,4 +83,5 @@ void warning(char *format, ...);
 void error(char *format, ...);
 int  bindport(char *netflow);
 void recv_flow(void);
-
+void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
+          unsigned char prot, unsigned short dport, unsigned char flags);
