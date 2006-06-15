@@ -151,7 +151,7 @@ void hup(int signo)
     { fprintf(stderr, "Config error!\n");
       exit(1);
     }
-    if (my_mac[0] == NULL)
+    if (my_mac[0] == NULL && (!pflow || netflow[0]))
     {
       my_mac[0] = malloc(ETHER_ADDR_LEN);
       get_mac(piface, my_mac[0]);

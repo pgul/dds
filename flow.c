@@ -137,14 +137,18 @@ void recv_flow(void)
          (n = recvfrom(sockfd, databuf, sizeof(databuf), 0, (struct sockaddr *)&remote_addr, &sl)) != -1)
   {
     if (n == 0) continue;
-    for (pr=routers; pr; pr=pr->next)
+    for (pr=routers->next; pr; pr=pr->next)
     {
-      if (pr->addr != (u_long)-1 && pr->addr != remote_addr.sin_addr.s_addr)
+      if (pr->addr == (u_long)-1 || pr->addr == remote_addr.sin_addr.s_addr)
         break;
     }
     if (!pr)
-    { warning("Packet from unknown router %s ignored", inet_ntoa(remote_addr.sin_addr));
-      continue;
+    { 
+      pr = routers;
+      if (pr->nuplinks == 0)
+      { warning("Packet from unknown router %s ignored", inet_ntoa(remote_addr.sin_addr));
+        continue;
+      }
     }
     ver = ntohs(*(short int *)databuf);
     if (ver == 1)

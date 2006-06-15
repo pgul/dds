@@ -73,7 +73,7 @@ static void chstring(char **str, char *s1, char *s2)
 static void run(char *cmd)
 {
 	/* do we need fork() and any security checks? */
-	debug(1, "executing command '%s'\n", cmd);
+	debug(1, "executing command '%s'", cmd);
 	system(cmd);
 }
 

@@ -174,7 +174,7 @@ static int parse_line(char *str)
       oid = IFALIAS;
     else if (strncmp(p, "uplink-ifip=", 12)==0)
       oid = IFIP;
-    if (oid)
+    if (oid != -1)
     { if (cur_router->nuplinks == MAXUPLINKS)
         printf("Too many uplink interfaces (%d max), extra ignored\n", MAXUPLINKS);
       else
