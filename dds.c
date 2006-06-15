@@ -209,8 +209,8 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
   u_char *src_mac, *dst_mac;
 #ifndef NO_TRUNK
   struct ether_vlan_header *vlan_hdr;
-  int vlan;
 #endif
+  int vlan = 0;
 #ifdef DLT_LINUX_SLL
   struct sll_header *sll_hdr;
 #endif
@@ -230,7 +230,6 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
       goto dopkt_end;
     eth_hdr = (struct ether_header *)data;
 #ifndef NO_TRUNK
-    vlan=0;
     if (ntohs(eth_hdr->ether_type)==ETHERTYPE_VLAN)
     {
       vlan_hdr=(struct ether_vlan_header *)data;
@@ -250,9 +249,6 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
     if (hdr->len < sizeof(*ip_hdr))
       goto dopkt_end;
     eth_hdr = NULL;
-#ifndef NO_TRUNK
-    vlan = 0;
-#endif
     ip_hdr = (struct ip *)data;
 #ifdef DLT_LINUX_SLL
   } else if (linktype == DLT_LINUX_SLL)
@@ -261,9 +257,6 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
       goto dopkt_end;
     sll_hdr = (struct sll_header *)data;
     eth_hdr = NULL;
-#ifndef NO_TRUNK
-    vlan = 0;
-#endif
     if (ntohs(sll_hdr->sll_protocol)==ETHERTYPE_IP)
       ip_hdr = (struct ip *)(sll_hdr+1);
     else
@@ -286,7 +279,8 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
   } else
     src_mac = dst_mac = NULL;
   add_pkt(src_mac, dst_mac, ip_hdr,
-         hdr->len-(eth_hdr ? ((char *)ip_hdr - (char *)eth_hdr) : 0), in, vlan);
+         hdr->len-(eth_hdr ? ((char *)ip_hdr - (char *)eth_hdr) : 0),
+         in, vlan, 1, 0);
 dopkt_end:
   switchsignals(SIG_UNBLOCK);
 }
@@ -321,12 +315,13 @@ int usage(void)
 {
   printf("DoS/DDoS Detector      " __DATE__ "\n");
   printf("    Usage:\n");
-  printf("dds [-d] [-p] [-r] [-i <iface>] [config]\n");
-  printf("  -d  - daemonize\n");
-  printf("  -p  - do not put the interface into promiscuous mode\n");
-  printf("  -r  - reverse in/out check (for work on downlink's channel)\n");
-  printf("  -v  - increase verbouse level\n");
-  printf("  -i  - listen interface <iface>.\n");
+  printf("dds [-d] [-p] [-r] [-v] [-b [<ip>:]<port>] [-i <iface>] [config]\n");
+  printf("  -d               - daemonize\n");
+  printf("  -p               - do not put the interface into promiscuous mode\n");
+  printf("  -r               - reverse in/out check (for work on downlink's channel)\n");
+  printf("  -i <iface>       - listen interface <iface>.\n");
+  printf("  -b [<ip>:]<port> - receive netflow to <ip>:<port>\n");
+  printf("  -v               - increase verbouse level\n");
   return 0;
 }
 
@@ -429,6 +424,7 @@ int main(int argc, char *argv[])
       case 'p': promisc=1;     break;
       case 'i': piface=optarg; break;
       case 'r': reverse=1;     break;
+      case 'b': pflow=optarg;  break;
       case 'v': verb++;        break;
       case 'h':
       case '?': usage(); return 1;
@@ -443,8 +439,40 @@ int main(int argc, char *argv[])
   { fprintf(stderr, "Config error\n");
     return 1;
   }
+  if (pflow)
+    bindport(pflow);
   if (daemonize)
     daemon(0, 0);
+  if (strcmp(logname, "syslog") == 0)
+    openlog("dds", LOG_PID, LOG_DAEMON);
+  last_check=time(NULL);
+  switchsignals(SIG_BLOCK);
+  signal(SIGHUP, hup);
+  signal(SIGUSR1, hup);
+  signal(SIGUSR2, hup);
+  signal(SIGTERM, hup);
+  signal(SIGINT, hup);
+  f=fopen(pidfile, "w");
+  if (f)
+  { fprintf(f, "%u\n", (unsigned)getpid());
+    fclose(f);
+  }
+  if (pflow || netflow[0])
+  {
+    if (uid) {
+      if (setuid(uid))
+        fprintf(stderr, "setuid failed: %s\n", strerror(errno));
+      else
+        debug(1, "Setuid to uid %d done\n", uid);
+    }
+    last_check = time(NULL);
+    switchsignals(SIG_UNBLOCK);
+    recv_flow();
+    unlink(pidfile);
+    if (strcmp(logname, "syslog") == 0)
+      closelog();
+    return 0;
+  }
   if (!piface) piface=iface;
   if (strcmp(piface, "all") == 0)
     piface = NULL;
@@ -462,20 +490,6 @@ int main(int argc, char *argv[])
 #endif
   if (pk)
   {
-    if (strcmp(logname, "syslog") == 0)
-      openlog("dds", LOG_PID, LOG_DAEMON);
-    last_check=time(NULL);
-    switchsignals(SIG_BLOCK);
-    signal(SIGHUP, hup);
-    signal(SIGUSR1, hup);
-    signal(SIGUSR2, hup);
-    signal(SIGTERM, hup);
-    signal(SIGINT, hup);
-    f=fopen(pidfile, "w");
-    if (f)
-    { fprintf(f, "%u\n", (unsigned)getpid());
-      fclose(f);
-    }
     linktype = pcap_datalink(pk);
     if (linktype != DLT_EN10MB && linktype != DLT_RAW
 #ifdef DLT_LINUX_SLL

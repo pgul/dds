@@ -8,6 +8,7 @@
 #define EXPIRE_INTERVAL	300
 #define CMDLEN		1024
 #define MAXMYMACS	128
+#define MAXUPIFACES	128
 
 struct octet {
 	union {
@@ -39,12 +40,13 @@ extern time_t last_check;
 extern struct checktype *checkhead;
 extern char iface[];
 extern char logname[], snapfile[], pidfile[];
-extern char alarmcmd[], noalarmcmd[], contalarmcmd[];
+extern char alarmcmd[], noalarmcmd[], contalarmcmd[], netflow[], *pflow;
 extern int  check_interval, expire_interval, reverse, verb;
 extern uid_t uid;
-extern u_char *my_mac[MAXMYMACS];
+extern u_char *my_mac[];
+extern int nupifaces, upifaces[];
 
-void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in, int vlan);
+void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in, int vlan, int pkts, int flow);
 void check(void);
 int  config(char *name);
 void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int set);
@@ -53,4 +55,6 @@ char *printip(unsigned char *ip, int preflen, by_type by, int in);
 int  length(by_type by);
 void logwrite(char *format, ...);
 void debug(int level, char *format, ...);
+int  bindport(char *netflow);
+void recv_flow(void);
 

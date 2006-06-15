@@ -1,4 +1,4 @@
-.TH DDS 8 "23 Jan 2006"
+.TH DDS 8 "15 Jun 2006"
 
 .SH NAME
 dds \- DoS/DDoS Detecting System
@@ -10,11 +10,14 @@ dds \- DoS/DDoS Detecting System
 .SH DESCRIPTION
 .PP
 The \fIdds\fP is a DoS/DDoS detecting system.
-It listen the uplink interface on a PC router or monitoring port
-and collect traffic statistics. If traffic to a selected network
+It listen the uplink interface on a PC router or monitoring (SNAP)
+port and collect traffic statistics. If traffic to a selected network
 or to a single host in selected network more then normal (according
 to specified in the config file rules), dds reports about this
 incident via email or by any other method.
+Another possibility is to detect DoS and DDoS attacks based on
+netflow export information from a router. The \fIdds\fP currently
+supports netflow versions 1 and 5.
 
 .SH OPTIONS
 .l The \fIdds\fP accepts the following options:
@@ -25,11 +28,14 @@ Display a list of all commandline options.
 .B -i \fIiface\fP
 Listen specified interface (override config settings)
 .TP 10
+.B -i \fI[ip:]port\fP
+Receive netflow to specified ip and port (override config settings)
+.TP 10
 .B -d
 Daemonize.
 .TP 10
 .B -p
-Don't put the  interface into promiscuous mode.
+Don't put the interface into promiscuous mode.
 .TP 10
 .B -v
 Increase verbouse level.

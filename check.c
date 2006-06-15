@@ -30,8 +30,8 @@ static u_char broadcast[ETHER_ADDR_LEN]={0xff,0xff,0xff,0xff,0xff,0xff};
 extern long snap_traf;
 extern FILE *fsnap;
 
-static void putsnap(int in, u_char *src_mac, u_char *dst_mac, 
-                    u_long src_ip, u_long dst_ip, int len, int vlan)
+static void putsnap(int flow, int in, u_char *src_mac, u_char *dst_mac, 
+                    u_long src_ip, u_long dst_ip, int len, int vlan, int pkts)
 {
   char str_src_ip[20], str_dst_ip[20], pvlan[20];
 
@@ -51,15 +51,20 @@ static void putsnap(int in, u_char *src_mac, u_char *dst_mac,
       dst_mac[0], dst_mac[1], dst_mac[2],
       dst_mac[3], dst_mac[4], dst_mac[5], pvlan);
   else
-    fprintf(fsnap, 
+  { if (flow)
+      fprintf(fsnap, "%s %s->%s %u bytes %u pkts\n",
+        (in ? "<-" : "->"), str_src_ip, str_dst_ip, len, pkts);
+    else
+      fprintf(fsnap, 
 #ifdef HAVE_PKTTYPE
                   "%s "
 #endif
                   "%s->%s %u bytes",
 #ifdef HAVE_PKTTYPE
-      (in ? "<-" : "->"),
+        (in ? "<-" : "->"),
 #endif
-      str_src_ip, str_dst_ip, len);
+        str_src_ip, str_dst_ip, len);
+  }
   fflush(fsnap);
   if ((snap_traf-=len) <= 0)
   { fclose(fsnap);
@@ -117,7 +122,7 @@ static char *printoctets(unsigned char *octets, int length)
 }
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
-             u_long len, int in, int vlan)
+             u_long len, int in, int vlan, int pkts, int flow)
 {
   u_long local=0, remote=0;
   time_t curtime;
@@ -154,7 +159,8 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     if (i == MAXMYMACS)
       return;
   }
-  if (fsnap) putsnap(in, src_mac, dst_mac, src_ip, dst_ip, len, vlan);
+  if (fsnap)
+    putsnap(flow, in, src_mac, dst_mac, src_ip, dst_ip, len, vlan, pkts);
   curtime = time(NULL);
   for (pc=checkhead; pc; pc=pc->next)
   {
@@ -192,8 +198,10 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     {
       if (pc->checkpoint == BPS)
         pc->count += len;
+      else if (pc->checkpoint == SYN)
+        pc->count += 1;
       else
-        pc->count++;
+        pc->count += pkts;
     } else {
       struct octet **po;
       unsigned char octetsarr[8], *octets;
@@ -234,8 +242,10 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
       }
       if (pc->checkpoint == BPS)
         po[0][octets[i]].count += len;
+      else if (pc->checkpoint == SYN)
+        po[0][octets[i]].count += 1;
       else
-        po[0][octets[i]].count++;
+        po[0][octets[i]].count += pkts;
     }
     if (pc->last) break;
   }

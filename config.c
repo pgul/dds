@@ -32,6 +32,8 @@ char iface[32]=IFACE;
 char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval=CHECK_INTERVAL, expire_interval=EXPIRE_INTERVAL;
 char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
+char netflow[256], *pflow;
+int  nupifaces, upifaces[MAXUPIFACES];
 uid_t uid;
 static struct checktype *checktail;
 
@@ -93,7 +95,7 @@ static int parse_line(char *str)
     for (i=0; i<MAXMYMACS; i++)
       if (my_mac[i] == NULL) break;
     if (i == MAXMYMACS)
-      printf("To many mymacs (%d max), extra ignored\n", MAXMYMACS);
+      printf("Too many mymacs (%d max), extra ignored\n", MAXMYMACS);
     else {
       my_mac[i] = malloc(ETHER_ADDR_LEN);
       memcpy(my_mac[i], m, ETHER_ADDR_LEN);
@@ -103,6 +105,17 @@ static int parse_line(char *str)
   }
   if (strncmp(p, "iface=", 6)==0)
   { strncpy(iface, p+6, sizeof(iface)-1);
+    return 0;
+  }
+  if (strncmp(p, "netflow=", 8)==0)
+  { strncpy(netflow, p+8, sizeof(netflow)-1);
+    return 0;
+  }
+  if (strncmp(p, "uplink-ifindex=", 15)==0)
+  { if (nupifaces == MAXUPIFACES)
+      printf("Too many uplink interfaces (%d max), extra ignored\n", MAXUPIFACES);
+    else
+      upifaces[nupifaces++] = atoi(p+15);
     return 0;
   }
   if (strncmp(p, "log=", 4)==0)
@@ -312,6 +325,7 @@ int config(char *name)
 {
   FILE *f;
   int i;
+  char *old_netflow = NULL;
 
   if (strcmp(logname, "syslog") == 0)
     closelog();
@@ -333,10 +347,23 @@ int config(char *name)
     free(my_mac[i]);
     my_mac[i] = NULL;
   }
+  if (!pflow) old_netflow = strdup(netflow);
+  netflow[0] = '\0';
+  nupifaces = 0;
   parse_file(f);
   fclose(f);
   if (strcmp(logname, "syslog") == 0)
     openlog("dds", LOG_PID, LOG_DAEMON);
+  if (!pflow)
+  {
+    if (strcmp(netflow, old_netflow))
+    {
+      /* restart netflow listen process */
+      /* ... */
+      bindport(netflow);
+    }
+    free(old_netflow);
+  }
   return 0;
 }
 
