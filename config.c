@@ -33,9 +33,27 @@ char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval=CHECK_INTERVAL, expire_interval=EXPIRE_INTERVAL;
 char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 char netflow[256], *pflow;
-int  nupifaces, upifaces[MAXUPIFACES];
 uid_t uid;
+struct router_t *routers;
+static struct router_t *cur_router;
 static struct checktype *checktail;
+
+#ifdef DO_SNMP
+static unsigned short get_ifindex(struct router_t*, enum ifoid_t, char **s);
+#endif
+
+static void freerouter(struct router_t *router)
+{
+#ifdef DO_SNMP
+  int i;
+  for (i=0; i<NUM_OIDS; i++)
+    if (router->data[i])
+    { free(router->data[i]);
+      router->data[i] = NULL;
+      router->nifaces[i] = 0;
+    }
+#endif
+}
 
 static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
 { char c, *p1;
@@ -111,13 +129,60 @@ static int parse_line(char *str)
   { strncpy(netflow, p+8, sizeof(netflow)-1);
     return 0;
   }
-  if (strncmp(p, "uplink-ifindex=", 15)==0)
-  { if (nupifaces == MAXUPIFACES)
-      printf("Too many uplink interfaces (%d max), extra ignored\n", MAXUPIFACES);
-    else
-      upifaces[nupifaces++] = atoi(p+15);
+  if (strncmp(p, "router=", 7)==0)
+  { struct hostent *he;
+
+    cur_router->next = calloc(1, sizeof(struct router_t));
+    cur_router = cur_router->next;
+    p+=7;
+#ifdef DO_SNMP
+    { char *p1;
+      if ((p1=strchr(p, '@'))!=NULL)
+      { *p1++='\0';
+        strncpy(cur_router->community, p, sizeof(cur_router->community)-1);
+        p=p1;
+      } else
+        strcpy(cur_router->community, "public");
+    }
+#endif
+    /* get router address */
+    if ((he=gethostbyname(p))==0 || he->h_addr_list[0]==NULL)
+    { if (strcmp(p, "any")==0)
+        cur_router->addr=(u_long)-1;
+      else
+        warning("Warning: Router %s not found", p);
+      return 0;
+    }
+    /* use only first address */
+    memcpy(&cur_router->addr, he->h_addr_list[0], he->h_length);
     return 0;
   }
+  if (strncmp(p, "uplink-ifindex=", 15)==0)
+  { if (cur_router->nuplinks == MAXUPLINKS)
+      printf("Too many uplink interfaces (%d max), extra ignored\n", MAXUPLINKS);
+    else
+      cur_router->uplinks[cur_router->nuplinks++] = atoi(p+15);
+    return 0;
+  }
+#ifdef DO_SNMP
+  { int oid = -1;
+    if (strncmp(p, "uplink-ifname=", 14)==0)
+      oid = IFNAME;
+    else if (strncmp(p, "uplink-ifdescr=", 15)==0)
+      oid = IFDESCR;
+    else if (strncmp(p, "uplink-ifalias=", 15)==0)
+      oid = IFALIAS;
+    else if (strncmp(p, "uplink-ifip=", 12)==0)
+      oid = IFIP;
+    if (oid)
+    { if (cur_router->nuplinks == MAXUPLINKS)
+        printf("Too many uplink interfaces (%d max), extra ignored\n", MAXUPLINKS);
+      else
+        cur_router->uplinks[cur_router->nuplinks++] = get_ifindex(cur_router, oid, &p);
+      return 0;
+    }
+  }
+#endif
   if (strncmp(p, "log=", 4)==0)
   { strncpy(logname, p+4, sizeof(logname)-1);
     return 0;
@@ -347,9 +412,16 @@ int config(char *name)
     free(my_mac[i]);
     my_mac[i] = NULL;
   }
+  for (cur_router=routers; cur_router;)
+  { freerouter(cur_router);
+    routers = cur_router;
+    cur_router = cur_router->next;
+    free(routers);
+  }
+  cur_router = routers = calloc(1, sizeof(struct router_t));
+  cur_router->addr = (u_long)-1;
   if (!pflow) old_netflow = strdup(netflow);
   netflow[0] = '\0';
-  nupifaces = 0;
   parse_file(f);
   fclose(f);
   if (strcmp(logname, "syslog") == 0)

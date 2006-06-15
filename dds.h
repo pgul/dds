@@ -8,7 +8,8 @@
 #define EXPIRE_INTERVAL	300
 #define CMDLEN		1024
 #define MAXMYMACS	128
-#define MAXUPIFACES	128
+#define MAXUPLINKS	128
+#define MAXVRF		128
 
 struct octet {
 	union {
@@ -23,6 +24,27 @@ struct octet {
 
 typedef enum { PPS, BPS, SYN, UDP, ICMP } cp_type;
 typedef enum { BYNONE, BYSRC, BYDST, BYSRCDST, BYDSTPORT } by_type;
+
+#ifdef DO_SNMP
+enum ifoid_t { IFNAME, IFDESCR, IFALIAS, IFIP };
+#define NUM_OIDS (IFIP+1)
+#endif
+
+struct router_t {
+  u_long addr;
+#ifdef DO_SNMP
+  char community[256];
+  int  ifnumber;
+  int  nifaces[NUM_OIDS];
+  struct routerdata {
+    unsigned short ifindex;
+    char *val;
+  } *data[NUM_OIDS];
+#endif
+  unsigned seq[MAXVRF];
+  int nuplinks, uplinks[MAXUPLINKS];
+  struct router_t *next;
+};
 
 struct checktype {
 	u_long ip, mask;
@@ -44,7 +66,7 @@ extern char alarmcmd[], noalarmcmd[], contalarmcmd[], netflow[], *pflow;
 extern int  check_interval, expire_interval, reverse, verb;
 extern uid_t uid;
 extern u_char *my_mac[];
-extern int nupifaces, upifaces[];
+extern struct router_t *routers;
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len, int in, int vlan, int pkts, int flow);
 void check(void);

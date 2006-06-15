@@ -118,6 +118,151 @@ AC_TRY_COMPILE([
     AC_DEFINE_UNQUOTED(uh_dport, dest)
     AC_MSG_RESULT(no))
 
+dnl Check for snmp
+AC_ARG_WITH(snmp,
+            [  --with-snmp             SNMP support (default yes)],
+            do_snmp=yes, do_snmp=no)
+case x$withval in
+  xno)
+    ;;
+  *)
+    AC_CHECK_FUNC(strdup)
+    AC_CHECK_HEADERS(stdarg.h)
+    OLD_CFLAGS=$CFLAGS
+    AC_CHECK_HEADERS(net-snmp/net-snmp-config.h)
+    case x$ac_cv_header_net_snmp_net_snmp_config_h in
+      xyes)
+        snmp_ok=yes
+        AC_DEFINE(HAVE_NET_SNMP_SNMP_H)
+        AC_DEFINE(NET_SNMP)
+        net_snmp=yes
+        ;;
+      *)
+        AC_MSG_CHECKING(if net-snmp-config.h is in /usr/local/include/net-snmp)
+        CFLAGS="$CFLAGS -I /usr/local/include"
+        AC_TRY_COMPILE([#include <sys/types.h>
+                        #include <net-snmp/net-snmp-config.h>
+                        #include <net-snmp/net-snmp-includes.h>], [],
+                        AC_MSG_RESULT(yes); snmp_ok=yes,
+                        AC_MSG_RESULT(no); snmp_ok=no)
+        case x$snmp_ok in
+          xyes)
+            AC_DEFINE(HAVE_NET_SNMP_SNMP_H)
+            AC_DEFINE(NET_SNMP)
+            net_snmp=yes
+            ;;
+          *)
+            CFLAGS="$OLD_CFLAGS"
+            AC_CHECK_HEADERS(ucd-snmp/ucd-snmp-config.h)
+            case x$ac_cv_header_ucd_snmp_ucd_snmp_config_h in
+              xyes)
+                snmp_ok=yes
+                AC_DEFINE(HAVE_UCD_SNMP_SNMP_H)
+                ;;
+              *)
+                AC_MSG_CHECKING(if ucd-snmp-config.h is in /usr/local/include/ucd-snmp)
+                OLD_CFLAGS=$CFLAGS
+                CFLAGS="$CFLAGS -I /usr/local/include"
+                AC_TRY_COMPILE([#include <sys/types.h>
+                                #include <ucd-snmp/ucd-snmp-config.h>
+                                #include <ucd-snmp/asn1.h>
+                                #include <ucd-snmp/snmp.h>], [],
+                                AC_MSG_RESULT(yes); snmp_ok=yes,
+                                AC_MSG_RESULT(no); snmp_ok=no)
+                case x$snmp_ok in
+                  xyes)
+                    AC_DEFINE(HAVE_UCD_SNMP_SNMP_H)
+                    ;;
+                  *)
+                    CFLAGS="$OLD_CFLAGS"
+                    case x$do_snmp in
+                      xyes)
+                        AC_MSG_WARN([net-snmp or ucd-snmp not found, SNMP support disabled])
+                        do_snmp=no
+                        ;;
+                    esac
+                    ;;
+                esac
+                ;;
+            esac
+            ;;
+        esac
+        ;;
+    esac
+    case x$snmp_ok in
+      xyes)
+        case x$net_snmp in
+          xyes)
+            AC_MSG_CHECKING(for libnetsnmp)
+            OLD_LIBS="$LIBS"
+            LIBS="$LIBS -lnetsnmp -lcrypto"
+            AC_TRY_LINK([],[snmp_sess_init()],
+              AC_MSG_RESULT(yes), AC_MSG_RESULT(no); snmp_ok=no,
+              AC_MSG_RESULT(cross-compiling. No assumptions made); snmp_ok=no)
+            case x$snmp_ok in
+              xno)
+                AC_MSG_CHECKING(for libnetsnmp in /usr/local/lib)
+                OLD_LDFLAGS="$LDFLAGS"
+                LDFLAGS="$LDFLAGS -L/usr/local/lib"
+                AC_TRY_LINK([],[snmp_sess_init()],
+                 AC_MSG_RESULT(yes); snmp_ok=yes, AC_MSG_RESULT(no),
+                 AC_MSG_RESULT(cross-compiling. No assumptions made))
+                case x$snmp_ok in
+                  xno)
+                    LIBS="$OLD_LIBS"
+                    LDFLAGS="$OLD_LDFLAGS"
+                    ;;
+                esac
+                ;;
+            esac
+            ;;
+          *)
+            snmp_ok=no
+            ;;
+        esac
+        case x$snmp_ok in
+          xno)
+            AC_MSG_CHECKING(for libsnmp)
+            OLD_LIBS="$LIBS"
+            LIBS="$LIBS -lsnmp -lcrypto"
+            AC_TRY_LINK([],[snmp_sess_init()],
+              AC_MSG_RESULT(yes), AC_MSG_RESULT(no); snmp_ok=no,
+              AC_MSG_RESULT(cross-compiling. No assumptions made); snmp_ok=no)
+            case x$snmp_ok in
+              xno)
+                AC_MSG_CHECKING(for libsnmp in /usr/local/lib)
+                OLD_LDFLAGS="$LDFLAGS"
+                LDFLAGS="$LDFLAGS -L/usr/local/lib"
+                AC_TRY_LINK([],[snmp_sess_init()],
+                 AC_MSG_RESULT(yes); snmp_ok=yes, AC_MSG_RESULT(no),
+                 AC_MSG_RESULT(cross-compiling. No assumptions made))
+                case x$snmp_ok in
+                  xno)
+                    case x$do_snmp in
+                      xyes)
+                        AC_MSG_WARN([libsnmp not found, SNMP support disabled])
+                        do_snmp=no
+                        ;;
+                    esac
+                    CFLAGS="$OLD_CFLAGS"
+                    LIBS="$OLD_LIBS"
+                    LDFLAGS="$OLD_LDFLAGS"
+                    ;;
+                esac
+                ;;
+            esac
+            ;;
+        esac
+        ;;
+    esac
+    case x$snmp_ok in
+      xyes)
+        AC_DEFINE(DO_SNMP)
+        ;;
+    esac
+    ;;
+esac
+
 dnl Set dirs
 logdir=/var/log/dds
 AC_ARG_WITH(logdir,

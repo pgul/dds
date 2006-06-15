@@ -59,11 +59,11 @@ int bindport(char *netflow)
     flowip = inet_addr(netflow);
     *p++ = ':';
   } else {
-    flowip = INADDR_ANY;
+    flowip = (u_long)-1;
     p = netflow;
   }
   flowport = atoi(p);
-  if (flowport == 0 || flowip == INADDR_NONE)
+  if (flowport == 0 || flowip == 0)
   {
     fprintf(stderr, "Incorrect netflow port: %s!\n", netflow);
     return -1;
@@ -131,11 +131,21 @@ void recv_flow(void)
   char databuf[MTU];
   char pktbuf[sizeof(struct ip)+sizeof(struct tcphdr)+sizeof(struct udphdr)];
   struct ip *iphdr = (struct ip *)pktbuf;
+  struct router_t *pr;
 
   while (sl=sizeof(remote_addr), memset(&remote_addr, 0, sizeof(remote_addr)),
          (n = recvfrom(sockfd, databuf, sizeof(databuf), 0, (struct sockaddr *)&remote_addr, &sl)) != -1)
   {
     if (n == 0) continue;
+    for (pr=routers; pr; pr=pr->next)
+    {
+      if (pr->addr != (u_long)-1 && pr->addr != remote_addr.sin_addr.s_addr)
+        break;
+    }
+    if (!pr)
+    { warning("Packet from unknown router %s ignored", inet_ntoa(remote_addr.sin_addr));
+      continue;
+    }
     ver = ntohs(*(short int *)databuf);
     if (ver == 1)
     {
@@ -156,10 +166,10 @@ void recv_flow(void)
         output=ntohs(data1[i].output);
         make_iphdr(iphdr, data1[i].srcaddr, data1[i].dstaddr, data1[i].prot,
                    data1[i].srcport, data1[i].dstport, data1[i].flags);
-        for (n = 0; n < nupifaces; n++) {
-          if (input == upifaces[n])
+        for (n = 0; n < pr->nuplinks; n++) {
+          if (input == pr->uplinks[n])
             add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data1[i].pkts), 1);
-          else if (output == upifaces[n])
+          else if (output == pr->uplinks[n])
             add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data1[i].pkts), 1);
           else
             continue;
@@ -186,10 +196,10 @@ void recv_flow(void)
         output=ntohs(data5[i].output);
         make_iphdr(iphdr, data5[i].srcaddr, data5[i].dstaddr, data5[i].prot,
                    data5[i].srcport, data5[i].dstport, data5[i].flags);
-        for (n = 0; n < nupifaces; n++) {
-          if (input == upifaces[n])
+        for (n = 0; n < pr->nuplinks; n++) {
+          if (input == pr->uplinks[n])
             add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data5[i].pkts), 1);
-          else if (output == upifaces[n])
+          else if (output == pr->uplinks[n])
             add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data5[i].pkts), 1);
           else
             continue;
