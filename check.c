@@ -131,6 +131,12 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
   u_long dst_ip = *(u_long *)&(ip_hdr->ip_dst);
   u_short dst_port;
 
+  if (in != -1)
+  {
+    if (reverse) in ^= 1;
+    remote = in ? src_ip : dst_ip;
+    local  = in ? dst_ip : src_ip;
+  }
   if (dst_mac)
   {
     int i;
@@ -226,8 +232,16 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
         if (*po == NULL)
         {
           if (verb >= 3)
+          {
+            debug(9, "%s packet %u.%u.%u.%u->%u.%u.%u.%u",
+                  in ? "Inbound" : "Outbound",
+                  ((char *)&src_ip)[0], ((char *)&src_ip)[1],
+                  ((char *)&src_ip)[2], ((char *)&src_ip)[3],
+                  ((char *)&dst_ip)[0], ((char *)&dst_ip)[1],
+                  ((char *)&dst_ip)[2], ((char *)&dst_ip)[3]);
             debug(3, "New entry %s %s %s", pc->in ? "from" : "to",
                   printoctets(octets, i+1), cp2str(pc->checkpoint));
+          }
           *po = calloc(256, sizeof(struct octet));
           if (*po == NULL) {
             logwrite("Cannot allocate memory: %s", strerror(errno));
