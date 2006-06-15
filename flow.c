@@ -103,8 +103,8 @@ static void make_iphdr(struct ip *ip_hdr, u_long saddr, u_long daddr,
           unsigned char flags)
 {
   ip_hdr->ip_p = prot;
-  ip_hdr->ip_src = *(struct in_addr *)&saddr;
-  ip_hdr->ip_dst = *(struct in_addr *)&daddr;
+  ip_hdr->ip_src = *(struct in_addr *)(void *)&saddr;
+  ip_hdr->ip_dst = *(struct in_addr *)(void *)&daddr;
   if (prot == IPPROTO_TCP)
   {
     struct tcphdr *th = (struct tcphdr *)(ip_hdr+1);

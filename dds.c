@@ -140,7 +140,7 @@ static char *piface=NULL;
 
 void hup(int signo)
 {
-  debug(1, "Received signal %d\n", signo);
+  debug(1, "Received signal %d", signo);
   if (signo==SIGTERM || signo==SIGINT)
   { unlink(pidfile);
     exit(0);
@@ -156,7 +156,7 @@ void hup(int signo)
       my_mac[0] = malloc(ETHER_ADDR_LEN);
       get_mac(piface, my_mac[0]);
       my_mac[1] = NULL;
-      debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x\n",
+      debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x",
             piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
             my_mac[0][4], my_mac[0][5]);
     }
@@ -170,7 +170,7 @@ void hup(int signo)
     fsnap=fopen(snapfile, "a");
     if (fsnap==NULL)
     { snap_traf=0;
-      fprintf(stderr, "Can't open %s: %s!\n", snapfile, strerror(errno));
+      warning("Can't open %s: %s!", snapfile, strerror(errno));
     }
     else if (!wassnap)
     { time_t curtime=time(NULL);
@@ -461,9 +461,9 @@ int main(int argc, char *argv[])
   {
     if (uid) {
       if (setuid(uid))
-        fprintf(stderr, "setuid failed: %s\n", strerror(errno));
+        warning("setuid failed: %s", strerror(errno));
       else
-        debug(1, "Setuid to uid %d done\n", uid);
+        debug(1, "Setuid to uid %d done", uid);
     }
     last_check = time(NULL);
     switchsignals(SIG_UNBLOCK);
@@ -503,7 +503,7 @@ int main(int argc, char *argv[])
       { sprintf(unspec, "unspec (%d)", linktype);
         sdlt = unspec;
       }
-      fprintf(stderr, "Unsupported link type %s!\n", sdlt);
+      warning("Unsupported link type %s!", sdlt);
     }
     else
     {
@@ -519,12 +519,12 @@ int main(int argc, char *argv[])
         my_mac[0] = malloc(ETHER_ADDR_LEN);
         get_mac(piface, my_mac[0]);
         my_mac[1] = NULL;
-        debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x\n",
+        debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x",
                 piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
                 my_mac[0][4], my_mac[0][5]);
       }
       if (pcap_lookupnet(piface, &localnet, &netmask, ebuf))
-      { fprintf(stderr, "pcap_lookupnet error: %s\n", ebuf);
+      { warning("pcap_lookupnet error: %s", ebuf);
         netmask = localnet = 0;
       }
       if (pcap_compile(pk, &fcode, NULL, 1, netmask) == 0)
@@ -534,13 +534,13 @@ int main(int argc, char *argv[])
       switchsignals(SIG_UNBLOCK);
       if (uid) {
         if (setuid(uid))
-          fprintf(stderr, "setuid failed: %s\n", strerror(errno));
+          warning("setuid failed: %s", strerror(errno));
         else
-          debug(1, "Setuid to uid %d done\n", uid);
+          debug(1, "Setuid to uid %d done", uid);
       }
       last_check = time(NULL);
       pcap_loop(pk, -1, dopkt, NULL);
-      fprintf(stderr, "pcap_loop error: %s\n", ebuf);
+      warning("pcap_loop error: %s", ebuf);
     } 
     unlink(pidfile);
     pcap_close(pk);
@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
       closelog();
   }
   else
-  { fprintf(stderr, "pcap_open_live fails: %s\n", ebuf);
+  { warning("pcap_open_live fails: %s", ebuf);
   }
   return 0;
 }
@@ -565,6 +565,40 @@ void debug(int level, char *format, ...)
   }
   va_start(ap, format);
   vfprintf(stderr, format, ap);
+  fprintf(stderr, "\n");
+  fflush(stderr);
+  va_end(ap);
+}
+
+void warning(char *format, ...)
+{
+  va_list ap;
+
+  if (strcmp(logname, "syslog") == 0) {
+    va_start(ap, format);
+    vsyslog(LOG_WARNING, format, ap);
+    va_end(ap);
+  }
+  va_start(ap, format);
+  vfprintf(stderr, format, ap);
+  fprintf(stderr, "\n");
+  fflush(stderr);
+  va_end(ap);
+}
+
+void error(char *format, ...)
+{
+  va_list ap;
+
+  if (strcmp(logname, "syslog") == 0) {
+    va_start(ap, format);
+    vsyslog(LOG_ERR, format, ap);
+    va_end(ap);
+  }
+  va_start(ap, format);
+  vfprintf(stderr, format, ap);
+  fprintf(stderr, "\n");
+  fflush(stderr);
   va_end(ap);
 }
 

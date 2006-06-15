@@ -55,6 +55,8 @@ char *printip(unsigned char *ip, int preflen, by_type by, int in);
 int  length(by_type by);
 void logwrite(char *format, ...);
 void debug(int level, char *format, ...);
+void warning(char *format, ...);
+void error(char *format, ...);
 int  bindport(char *netflow);
 void recv_flow(void);
 

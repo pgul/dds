@@ -367,3 +367,283 @@ int config(char *name)
   return 0;
 }
 
+#ifdef DO_SNMP
+/* find ifindex by snmp param */
+#ifdef NET_SNMP
+#include <net-snmp/net-snmp-config.h>
+#include <net-snmp/net-snmp-includes.h>
+#define ds_get_int(a, b)   netsnmp_ds_get_int(a, b)
+#define DS_LIBRARY_ID      NETSNMP_DS_LIBRARY_ID
+#define DS_LIB_SNMPVERSION NETSNMP_DS_LIB_SNMPVERSION
+#else
+#include <ucd-snmp/ucd-snmp-config.h>
+#include <ucd-snmp/asn1.h>
+#include <ucd-snmp/snmp.h>
+#include <ucd-snmp/snmp_api.h>
+#include <ucd-snmp/snmp_client.h>
+#include <ucd-snmp/snmp_impl.h>
+#include <ucd-snmp/snmp_parse_args.h>
+#include <ucd-snmp/mib.h>
+#include <ucd-snmp/system.h>
+#include <ucd-snmp/default_store.h>
+#endif
+
+static char *oid2str(enum ifoid_t oid)
+{
+  switch (oid)
+  { case IFNAME:  return "ifName";
+    case IFDESCR: return "ifDescr";
+    case IFALIAS: return "ifAlias";
+    case IFIP:    return "ifIP";
+  }
+  return "";
+}
+
+static char *oid2oid(enum ifoid_t oid)
+{
+  switch (oid)
+  { case IFNAME:  return "ifName";
+    case IFDESCR: return "ifDescr";
+    case IFALIAS: return "ifAlias";
+    case IFIP:    return "ipAdEntIfIndex";
+  }
+  return "";
+}
+
+static int comp(const void *a, const void *b)
+{
+  return strcasecmp(((struct routerdata *)a)->val, ((struct routerdata *)b)->val);
+}
+
+static int snmpwalk(struct router_t *router, enum ifoid_t noid)
+{
+  struct snmp_session  session, *ss;
+  struct snmp_pdu *pdu, *response;
+  struct variable_list *vars;
+  oid    root[MAX_OID_LEN], name[MAX_OID_LEN];
+  size_t rootlen, namelen;
+  int    running, status, exitval=0, nifaces, varslen, ifindex;
+  char   *oid, *curvar, ipbuf[16], soid[256];
+  struct {
+           unsigned short ifindex;
+           char val[256];
+  } *data;
+
+  /* get the initial object and subtree */
+  memset(&session, 0, sizeof(session));
+  snmp_sess_init(&session);
+  init_snmp("flowd");
+  /* open an SNMP session */
+  strcpy(ipbuf, inet_ntoa(*(struct in_addr *)&router->addr));
+  session.peername = ipbuf;
+  session.community = (unsigned char *)router->community;
+  session.community_len = strlen(router->community);
+  session.version = ds_get_int(DS_LIBRARY_ID, DS_LIB_SNMPVERSION);
+  oid=oid2oid(noid);
+  debug(1, "Do snmpwalk %s %s %s", ipbuf, router->community, oid);
+  if ((ss = snmp_open(&session)) == NULL)
+  { snmp_sess_perror("flowd", &session);
+    return 1;
+  }
+  debug(6, "snmp session opened");
+  while (router->ifnumber == 0 && noid!=IFIP) {
+    rootlen=MAX_OID_LEN;
+    if (snmp_parse_oid("ifNumber.0", root, &rootlen)==NULL)
+    { warning("Can't parse oid ifNumber.0");
+      snmp_perror("ifNumber.0");
+      break;
+    }
+    pdu = snmp_pdu_create(SNMP_MSG_GET);
+    snmp_add_null_var(pdu, root, rootlen);
+    status = snmp_synch_response(ss, pdu, &response);
+    if (status == STAT_SUCCESS){
+      if (response->errstat == SNMP_ERR_NOERROR){
+        vars = response->variables;
+        if (vars) {
+          router->ifnumber = vars->val.integer[0];
+          debug(2, "ifNumber = %d", router->ifnumber);
+        }
+      } else
+        warning("snmpget response error");
+    } else {
+      warning("snmpget status error");
+      snmp_sess_perror("flowd", ss);
+    }
+    if (response) snmp_free_pdu(response);
+    break;
+  }
+
+  /* get first object to start walk */
+  rootlen=MAX_OID_LEN;
+  if (snmp_parse_oid(oid, root, &rootlen)==NULL)
+  { warning("Can't parse oid %s", oid);
+    snmp_perror(oid);
+    return 1;
+  }
+  memmove(name, root, rootlen*sizeof(oid));
+  namelen = rootlen;
+  running = 1;
+  nifaces = varslen = ifindex = 0;
+  data = NULL;
+
+  while (running) {
+    /* create PDU for GETNEXT request and add object name to request */
+    if (router->ifnumber > 0 && noid != IFIP && running == 2) {
+      snprintf(soid, sizeof(soid), "%s.%d", oid, ifindex+1);
+      namelen=MAX_OID_LEN;
+      if (snmp_parse_oid(soid, name, &namelen)==NULL)
+      { warning("Can't parse oid %s", soid);
+        snmp_perror(soid);
+        break;
+      }
+      pdu = snmp_pdu_create(SNMP_MSG_GET);
+    } else
+      pdu = snmp_pdu_create(SNMP_MSG_GETNEXT);
+    snmp_add_null_var(pdu, name, namelen);
+    /* do the request */
+    status = snmp_synch_response(ss, pdu, &response);
+    if (status == STAT_SUCCESS) {
+      ifindex++;
+      if (response->errstat == SNMP_ERR_NOERROR) {
+        /* check resulting variables */
+        for (vars = response->variables; vars; vars = vars->next_variable) {
+          if ((vars->name_length < rootlen) ||
+              (memcmp(root, vars->name, rootlen * sizeof(oid))!=0)) {
+            /* not part of this subtree */
+            running = 0;
+            if (router->ifnumber > 0 && noid != IFIP) {
+              if (ifindex < router->ifnumber) running = 2;
+              debug(6, "%s.%d - not part of this subtree", oid, ifindex);
+            } else
+              debug(6, "Not part of this subtree");
+            continue;
+          }
+          if (nifaces%16==0)
+            data=realloc(data, (nifaces+16)*sizeof(data[0]));
+          if (noid==IFIP)
+          { sprintf(data[nifaces].val, "%lu.%lu.%lu.%lu",
+                    vars->name_loc[vars->name_length-4],
+                    vars->name_loc[vars->name_length-3],
+                    vars->name_loc[vars->name_length-2],
+                    vars->name_loc[vars->name_length-1]);
+            data[nifaces++].ifindex=vars->val.integer[0];
+          } else
+          {
+            strncpy(data[nifaces].val, (char *)vars->val.string, sizeof(data->val)-1);
+            if (vars->val_len<sizeof(data->val))
+              data[nifaces].val[vars->val_len]='\0';
+            else
+              data[nifaces].val[sizeof(data->val)-1]='\0';
+            data[nifaces++].ifindex=(unsigned short)vars->name_loc[vars->name_length-1];
+          }
+          debug(6, "ifindex %u val '%s'", data[nifaces-1].ifindex, data[nifaces-1].val);
+          varslen += strlen(data[nifaces-1].val)+1;
+          if ((vars->type != SNMP_ENDOFMIBVIEW) &&
+              (vars->type != SNMP_NOSUCHOBJECT) &&
+              (vars->type != SNMP_NOSUCHINSTANCE)) {
+            /* not an exception value */
+            memmove((char *)name, (char *)vars->name,
+                    vars->name_length * sizeof(oid));
+            namelen = vars->name_length;
+          } else
+            /* an exception value, so stop */
+            running = 0;
+        }
+      } else {
+        /* error in response */
+        if (response->errstat != SNMP_ERR_NOSUCHNAME) {
+          warning("Error in snmp packet.");
+          exitval = 2;
+          running = 0;
+        } else if (ifindex < router->ifnumber && noid != IFIP)
+          debug(2, "%s.%d - no such name", oid, ifindex);
+        else {
+          debug(2, "snmpwalk successfully done");
+          running = 0;
+        }
+      }
+    } else if (status == STAT_TIMEOUT) {
+      warning("snmp timeout");
+      running = 0;
+      exitval = 2;
+    } else {    /* status == STAT_ERROR */
+      warning("SNMP Error");
+      snmp_sess_perror("flowd", ss);
+      running = 0;
+      exitval = 2;
+    }
+    if (response) snmp_free_pdu(response);
+  }
+  snmp_close(ss);
+  if (exitval)
+  { if (data) free(data);
+    return exitval;
+  }
+  /* ok, copy data to router structure */
+  if (router->data[noid]) free(router->data[noid]);
+  router->data[noid] = malloc(sizeof(router->data[0][0])*nifaces+varslen);
+  curvar=((char *)router->data[noid])+sizeof(router->data[0][0])*nifaces;
+  router->nifaces[noid]=nifaces;
+  for (nifaces=0; nifaces<router->nifaces[noid]; nifaces++)
+  { router->data[noid][nifaces].ifindex=data[nifaces].ifindex;
+    router->data[noid][nifaces].val=curvar;
+    strcpy(curvar, data[nifaces].val);
+    curvar+=strlen(curvar)+1;
+  }
+  if (data) free(data);
+  /* data copied, sort it */
+  qsort(router->data[noid], nifaces, sizeof(router->data[0][0]), comp);
+  return 0;
+}
+
+static unsigned short get_ifindex(struct router_t *router, enum ifoid_t oid, char **s)
+{
+  int left, right, mid, i;
+  char val[256], *p;
+
+  if (router->addr==(u_long)-1)
+  { warning("Router not specified for %s", oid2str(oid));
+    return (unsigned short)-2; /* not matched for any interface */
+  }
+  if ((p=strchr(*s, '=')) == NULL)
+  { error("Internal error");
+    exit(2);
+  }
+  *s = p+1;
+  if (router->data[oid] == NULL)
+    /* do snmpwalk for the oid */
+    snmpwalk(router, oid);
+  /* copy value to val string */
+  if (**s == '\"')
+  { strncpy(val, *s+1, sizeof(val));
+    val[sizeof(val)-1] = '\0';
+    if ((p=strchr(val, '\"')) != NULL)
+      *p='\0';
+    if ((p=strchr(*s, '\"')) != NULL)
+      *s=p+1;
+  } else
+  { strncpy(val, *s, sizeof(val));
+    val[sizeof(val)-1] = '\0';
+    for (p=val; *p && !isspace(*p); p++);
+    *p='\0';
+  }
+  /* find ifindex for given val */
+  left=0; right=router->nifaces[oid];
+  while (left<right)
+  { mid=(left+right)/2;
+    if ((i=strcasecmp(router->data[oid][mid].val, val))==0)
+    {
+      debug(4, "ifindex for %s=%s at %s is %d", oid2str(oid), val, 
+        inet_ntoa(*(struct in_addr *)&router->addr),
+        router->data[oid][mid].ifindex);
+      return router->data[oid][mid].ifindex;
+    }
+    if (i>0) right=mid;
+    else left=mid+1;
+  }
+  warning("%s %s not found at %s", oid2str(oid), val,
+         inet_ntoa(*(struct in_addr *)&(router->addr)));
+  return (unsigned short)-2;
+}
+#endif
+
