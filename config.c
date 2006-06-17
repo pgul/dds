@@ -92,7 +92,6 @@ static int parse_line(char *str)
 {
   char *p;
   struct checktype *pc;
-  int i;
 
   p=strchr(str, '\n');
   if (p) *p='\0';
@@ -104,8 +103,12 @@ static int parse_line(char *str)
   if (str[0]=='\0') return 0;
   for (p=str+strlen(str)-1; isspace(*p); *p--='\0');
   p=str;
+#ifdef WITH_PCAP
   if (strncmp(p, "mymac=", 6)==0)
-  { short int m[3];
+  { 
+    short int m[3];
+    int i;
+
     sscanf(p+6, "%04hx.%04hx.%04hx", m, m+1, m+2);
     m[0] = htons(m[0]);
     m[1] = htons(m[1]);
@@ -125,6 +128,7 @@ static int parse_line(char *str)
   { strncpy(iface, p+6, sizeof(iface)-1);
     return 0;
   }
+#endif
   if (strncmp(p, "netflow=", 8)==0)
   { strncpy(netflow, p+8, sizeof(netflow)-1);
     return 0;
@@ -389,7 +393,6 @@ static void freecheck(struct checktype *pc)
 int config(char *name)
 {
   FILE *f;
-  int i;
   char *old_netflow = NULL;
 
   if (strcmp(logname, "syslog") == 0)
@@ -406,12 +409,16 @@ int config(char *name)
     freecheck(checkhead);
     checkhead = checktail;
   }
-  for (i=0; i<MAXMYMACS; i++)
-  {
-    if (my_mac[i] == NULL) break;
-    free(my_mac[i]);
-    my_mac[i] = NULL;
+#ifdef WITH_PCAP
+  { int i;
+    for (i=0; i<MAXMYMACS; i++)
+    {
+      if (my_mac[i] == NULL) break;
+      free(my_mac[i]);
+      my_mac[i] = NULL;
+    }
   }
+#endif
   for (cur_router=routers; cur_router;)
   { freerouter(cur_router);
     routers = cur_router;

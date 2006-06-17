@@ -7,33 +7,8 @@ AC_PROG_CC
 
 CFLAGS=
 dnl Checks for header files.
-AC_CHECK_HEADERS(sys/ioctl.h net/if_vlan_var.h net/ethernet.h)
-AC_CHECK_HEADERS(netinet/if_ether.h pcap.h getopt.h net/if_dl.h)
-case x$ac_cv_header_pcap_h in
-  xno)
-    AC_CHECK_HEADERS(pcap/pcap.h)
-    case x$ac_cv_header_pcap_pcap_h in
-      xno)
-        AC_MSG_CHECKING(for -I /usr/include/pcap needed for pcap.h)
-        OLD_CFLAGS=$CFLAGS
-        CFLAGS="$CFLAGS -I /usr/include/pcap"
-        AC_TRY_COMPILE([#include <pcap.h>],[],
-           AC_DEFINE(HAVE_PCAP_H) AC_MSG_RESULT(yes); ac_cv_header_ext_pcap_h=yes,
-           AC_MSG_RESULT(no))
-        case x$ac_cv_header_ext_pcap_h in
-          xno)
-            AC_MSG_CHECKING(for -I /usr/contrib/include needed for pcap.h)
-            CFLAGS="$OLD_CFLAGS -I /usr/contrib/include"
-            AC_TRY_COMPILE([#include <pcap.h>],[],
-             AC_DEFINE(HAVE_PCAP_H) AC_MSG_RESULT(yes); ac_cv_header_ext2_pcap_h=yes,
-             AC_MSG_RESULT(no))
-            ;;
-        esac
-        ;;
-     esac
-     ;;
-esac
-
+AC_CHECK_HEADERS(sys/ioctl.h getopt.h)
+AC_CHECK_HEADERS(net/ethernet.h netinet/if_ether.h net/if_dl.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 
@@ -52,46 +27,102 @@ esac
 
 AC_CHECK_FUNCS(daemon getifaddrs localtime_r)
 
-OLD_LIBS=$LIBS
-LIBS="$LIBS -lpcap"
-AC_MSG_CHECKING(for libpcap)
-AC_TRY_LINK([],[pcap_open_live();],AC_MSG_RESULT(yes),
-     AC_MSG_RESULT(no); AC_ERROR(no libpcap found))
+dnl Check for pcap
+AC_ARG_WITH(pcap,
+            [  --with-pcap             packet capture support (default auto)],
+            do_pcap=yes, do_pcap=no)
+case x$withval in
+  xno)
+    do_pcap=no
+    ;;
+  *)
 
-AC_MSG_CHECKING(for pcap_open_live_new())
-AC_TRY_LINK([],[pcap_open_live_new();],
-dnl AC_CHECK_LIB(pcap, pcap_open_live_new,
-     AC_DEFINE(HAVE_PCAP_OPEN_LIVE_NEW) AC_MSG_RESULT(yes); live_new=yes,
-     AC_MSG_RESULT(no))
-
-case x$live_new in
-  xyes)
-    OLD_CFLAGS=$CFLAGS
-    CFLAGS="$CFLAGS -Wimplicit-function-declaration -Werror"
-    AC_MSG_CHECKING(for pcap_open_live_new() proto)
-    AC_TRY_COMPILE([
-         #if defined(HAVE_PCAP_H)
-         #include <pcap.h>
-         #elif defined(HAVE_PCAP_PCAP_H)
-         #include <pcap/pcap.h>
-         #endif
-       ], [pcap_open_live_new();],
-       AC_MSG_RESULT(yes),
-       AC_DEFINE(NEED_PCAP_OPEN_LIVE_NEW_PROTO) AC_MSG_RESULT(no))
-    CFLAGS=$OLD_CFLAGS
-    OLD_CFLAGS=
+    OLD_LIBS=$LIBS
+    LIBS="$LIBS -lpcap"
+    AC_MSG_CHECKING(for libpcap)
+    AC_TRY_LINK([],[pcap_open_live();],AC_MSG_RESULT(yes); have_pcap=yes,
+         AC_MSG_RESULT(no); have_pcap=no)
+    case x$have_pcap in
+      xno)
+        case x$do_pcap in
+          xyes)
+            AC_MSG_WARN([no libpcap found, pcap support disabled])
+            ;;
+        esac
+        do_pcap=no
+        ;;
+      *)
+        AC_DEFINE(WITH_PCAP)
+        do_pcap=yes
+        ;;
+    esac
     ;;
 esac
 
-AC_MSG_CHECKING(for pkt_type in struct pcap_pkthdr)
-AC_TRY_COMPILE([
-    #if defined(HAVE_PCAP_H)
-    #include <pcap.h>
-    #elif defined(HAVE_PCAP_PCAP_H)
-    #include <pcap/pcap.h>
-    #endif
-  ], [struct pcap_pkthdr pk; pk.pkt_type;],
-  AC_DEFINE(HAVE_PKT_TYPE) AC_MSG_RESULT(yes), AC_MSG_RESULT(no))
+case x$do_pcap in
+  xyes)
+    AC_CHECK_HEADERS(pcap.h)
+    case x$ac_cv_header_pcap_h in
+      xno)
+        AC_CHECK_HEADERS(pcap/pcap.h)
+        case x$ac_cv_header_pcap_pcap_h in
+          xno)
+            AC_MSG_CHECKING(for -I /usr/include/pcap needed for pcap.h)
+            OLD_CFLAGS=$CFLAGS
+            CFLAGS="$CFLAGS -I /usr/include/pcap"
+            AC_TRY_COMPILE([#include <pcap.h>],[],
+               AC_DEFINE(HAVE_PCAP_H) AC_MSG_RESULT(yes); ac_cv_header_ext_pcap_h=yes,
+               AC_MSG_RESULT(no))
+            case x$ac_cv_header_ext_pcap_h in
+              xno)
+                AC_MSG_CHECKING(for -I /usr/contrib/include needed for pcap.h)
+                CFLAGS="$OLD_CFLAGS -I /usr/contrib/include"
+                AC_TRY_COMPILE([#include <pcap.h>],[],
+                 AC_DEFINE(HAVE_PCAP_H) AC_MSG_RESULT(yes); ac_cv_header_ext2_pcap_h=yes,
+                 AC_MSG_RESULT(no))
+                ;;
+            esac
+            ;;
+         esac
+         ;;
+    esac
+
+    AC_MSG_CHECKING(for pcap_open_live_new())
+    AC_TRY_LINK([],[pcap_open_live_new();],
+    dnl AC_CHECK_LIB(pcap, pcap_open_live_new,
+         AC_DEFINE(HAVE_PCAP_OPEN_LIVE_NEW) AC_MSG_RESULT(yes); live_new=yes,
+         AC_MSG_RESULT(no))
+
+    case x$live_new in
+      xyes)
+        OLD_CFLAGS=$CFLAGS
+        CFLAGS="$CFLAGS -Wimplicit-function-declaration -Werror"
+        AC_MSG_CHECKING(for pcap_open_live_new() proto)
+        AC_TRY_COMPILE([
+             #if defined(HAVE_PCAP_H)
+             #include <pcap.h>
+             #elif defined(HAVE_PCAP_PCAP_H)
+             #include <pcap/pcap.h>
+             #endif
+           ], [pcap_open_live_new();],
+           AC_MSG_RESULT(yes),
+           AC_DEFINE(NEED_PCAP_OPEN_LIVE_NEW_PROTO) AC_MSG_RESULT(no))
+        CFLAGS=$OLD_CFLAGS
+        OLD_CFLAGS=
+        ;;
+    esac
+
+    AC_MSG_CHECKING(for pkt_type in struct pcap_pkthdr)
+    AC_TRY_COMPILE([
+        #if defined(HAVE_PCAP_H)
+        #include <pcap.h>
+        #elif defined(HAVE_PCAP_PCAP_H)
+        #include <pcap/pcap.h>
+        #endif
+      ], [struct pcap_pkthdr pk; pk.pkt_type;],
+      AC_DEFINE(HAVE_PKT_TYPE) AC_MSG_RESULT(yes), AC_MSG_RESULT(no))
+    ;;
+esac
 
 dnl Check for trunk
 AC_ARG_WITH(vlans,
@@ -99,6 +130,14 @@ AC_ARG_WITH(vlans,
             do_trunk=yes, do_trunk=no)
 case x$do_trunk in
   xyes)
+    case x$do_pcap in
+      xno)
+        AC_MSG_WARN([vlans support declared but no pcap])
+        ;;
+      *)
+        AC_CHECK_HEADERS(net/if_vlan_var.h)
+        ;;
+    esac
     ;;
   *)
     AC_DEFINE(NO_TRUNK)
@@ -119,8 +158,9 @@ AC_TRY_COMPILE([
     AC_MSG_RESULT(no))
 
 dnl Check for snmp
+do_snmp=auto
 AC_ARG_WITH(snmp,
-            [  --with-snmp             SNMP support (default yes)],
+            [  --with-snmp             SNMP support (default auto)],
             do_snmp=yes, do_snmp=no)
 case x$withval in
   xno)
@@ -276,3 +316,4 @@ AC_ARG_WITH(debug,
      [CFLAGS="-g $CFLAGS"],[CFLAGS="-O3 $CFLAGS"])
 
 AC_OUTPUT(Makefile)
+

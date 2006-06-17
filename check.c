@@ -144,7 +144,7 @@ static void reprocess(struct checktype *pc, u_long local_ip)
   if (!recheck_arr) return;
   debug(2, "Reprocess saved queue (%u entries)", recheck_cur);
   debug(1, "Detailize %s %s %s", cp2str(pc->checkpoint),
-        pc->in ? "to" : "from", inet_ntoa(*(struct in_addr *)&local_ip));
+        pc->in ? "to" : "from", inet_ntoa(*(struct in_addr *)(void *)&local_ip));
   for (i=0; i<recheck_cur; i++)
   {
     make_iphdr(iphdr, recheck_arr[i].s_addr, recheck_arr[i].d_addr,

@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#ifdef WITH_PCAP
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
 #else
@@ -86,8 +87,10 @@ int	pcap_setfilter(pcap_t *, struct bpf_program *);
 #ifdef NEED_PCAP_OPEN_LIVE_NEW_PROTO
 pcap_t	*pcap_open_live_new(char *, int, int, int, char *, int, int, char *);
 #endif
+#endif
 #include "dds.h"
 
+#ifdef WITH_PCAP
 #ifndef NO_TRUNK
 #ifndef HAVE_NET_IF_VLAN_VAR_H
 struct ether_vlan_header {
@@ -121,14 +124,8 @@ struct sll_header {
 
 static int get_mac(const char *iface, unsigned char *mac);
 
-long snap_traf;
-FILE *fsnap;
-int  reverse, verb;
-time_t last_check;
 static pcap_t *pk;
-static int  linktype;
-static char *saved_argv[20];
-static char *confname;
+static int linktype;
 #ifdef HAVE_PCAP_OPEN_LIVE_NEW
 static int  real_linktype;
 #endif
@@ -137,6 +134,13 @@ static char *dlt[] = {
  "ieee802", "arcnet", "slip", "ppp", "fddi", "llc/snap atm", "raw ip",
  "bsd/os slip", "bsd/os ppp", "lane 802.3", "atm" };
 static char *piface=NULL;
+#endif
+long snap_traf;
+FILE *fsnap;
+int  reverse, verb;
+time_t last_check;
+static char *saved_argv[20];
+static char *confname;
 
 void hup(int signo)
 {
@@ -151,6 +155,7 @@ void hup(int signo)
     { fprintf(stderr, "Config error!\n");
       exit(1);
     }
+#ifdef WITH_PCAP
     if (my_mac[0] == NULL && (!pflow || netflow[0]))
     {
       my_mac[0] = malloc(ETHER_ADDR_LEN);
@@ -160,6 +165,7 @@ void hup(int signo)
             piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
             my_mac[0][4], my_mac[0][5]);
     }
+#endif
   }
   if (signo==SIGUSR1)
   { /* snap 100M of traffic */
@@ -180,7 +186,9 @@ void hup(int signo)
   if (signo==SIGUSR2)
   { /* restart myself */
     setuid(0);
+#ifdef WITH_PCAP
     pcap_close(pk);
+#endif
     unlink(pidfile);
     execvp(saved_argv[0], saved_argv);
     exit(5);
@@ -202,6 +210,7 @@ static void switchsignals(int how)
   sigprocmask(how, &sigset, NULL);
 }
 
+#ifdef WITH_PCAP
 void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
 {
   struct ether_header *eth_hdr;
@@ -284,6 +293,7 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
 dopkt_end:
   switchsignals(SIG_UNBLOCK);
 }
+#endif
 
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose)
@@ -315,16 +325,23 @@ int usage(void)
 {
   printf("DoS/DDoS Detector      " __DATE__ "\n");
   printf("    Usage:\n");
-  printf("dds [-d] [-p] [-r] [-v] [-b [<ip>:]<port>] [-i <iface>] [config]\n");
+  printf("dds [-d] [-r] [-v] "
+#ifdef WITH_PCAP
+         "[-p] [-i <iface>] "
+#endif
+         "[-b [<ip>:]<port>] [config]\n");
   printf("  -d               - daemonize\n");
-  printf("  -p               - do not put the interface into promiscuous mode\n");
-  printf("  -r               - reverse in/out check (for work on downlink's channel)\n");
+#ifdef WITH_PCAP
   printf("  -i <iface>       - listen interface <iface>.\n");
+  printf("  -p               - do not put the interface into promiscuous mode\n");
+#endif
+  printf("  -r               - reverse in/out check (for work on downlink's channel)\n");
   printf("  -b [<ip>:]<port> - receive netflow to <ip>:<port>\n");
   printf("  -v               - increase verbouse level\n");
   return 0;
 }
 
+#ifdef WITH_PCAP
 #if defined(HAVE_GETIFADDRS) && defined(HAVE_NET_IF_DL_H)
 #include <net/if_dl.h>
 #include <ifaddrs.h>
@@ -405,10 +422,13 @@ static int get_mac(const char *iface, unsigned char *mac)
   return rc;
 }
 #endif
+#endif
 
 int main(int argc, char *argv[])
 {
+#ifdef WITH_PCAP
   char ebuf[PCAP_ERRBUF_SIZE]="";
+#endif
   int i, daemonize, promisc;
   FILE *f;
 
@@ -421,8 +441,10 @@ int main(int argc, char *argv[])
     switch (i)
     {
       case 'd': daemonize=1;   break;
+#ifdef WITH_PCAP
       case 'p': promisc=1;     break;
       case 'i': piface=optarg; break;
+#endif
       case 'r': reverse=1;     break;
       case 'b': pflow=optarg;  break;
       case 'v': verb++;        break;
@@ -473,6 +495,7 @@ int main(int argc, char *argv[])
       closelog();
     return 0;
   }
+#ifdef WITH_PCAP
   if (!piface) piface=iface;
   if (strcmp(piface, "all") == 0)
     piface = NULL;
@@ -551,6 +574,10 @@ int main(int argc, char *argv[])
   { warning("pcap_open_live fails: %s", ebuf);
   }
   return 0;
+#else
+  error("Netflow IP and port not defined");
+  return 1;
+#endif
 }
 
 void debug(int level, char *format, ...)
