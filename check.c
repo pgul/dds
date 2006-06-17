@@ -30,6 +30,9 @@
 #define min(a, b)  ((a) < (b) ? (a) : (b))
 #endif
 
+#define cps(count) (unsigned long)((unsigned long long)(count) * (pc->checkpoint == BPS ? 8 : 1) / ((curtime > last_check) ? (curtime - last_check) : 1))
+#define addcount(count, p)	(((count) + (p) >= (count)) ? ((count) += (p)) : (count_t)-1)
+
 u_char *my_mac[MAXMYMACS];
 static u_char broadcast[ETHER_ADDR_LEN]={0xff,0xff,0xff,0xff,0xff,0xff};
 extern long snap_traf;
@@ -333,11 +336,11 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
         po = &po[0][octets[i]].octet;
       }
       if (pc->checkpoint == BPS)
-        po[0][octets[i]].count += len;
+        addcount(po[0][octets[i]].count, len);
       else if (pc->checkpoint == SYN)
-        po[0][octets[i]].count += 1;
+        addcount(po[0][octets[i]].count, 1);
       else
-        po[0][octets[i]].count += pkts;
+        addcount(po[0][octets[i]].count, pkts);
     }
     if (pc->last) break;
   }
@@ -369,26 +372,24 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     if (level==len-1) {
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         if (!octet[i].alarmed)
-          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
+          exec_alarm(ip, cps(octet[i].count), pc, 1);
         else
-          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
+          exec_alarm(ip, cps(octet[i].count), pc, 2);
         octet[i].alarmed = 1;
       } else if (octet[i].count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         if (octet[i].alarmed)
-          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
+          exec_alarm(ip, cps(octet[i].count), pc, 2);
         else
           debug(1, "%s for %s is %lu - safe DoS", cp2str(pc->checkpoint),
-                printip(ip, 32, pc->by, pc->in),
-                (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
+                printip(ip, 32, pc->by, pc->in), cps(octet[i].count));
       } else {
         if (octet[i].alarmed) {
-          exec_alarm(ip, octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
+          exec_alarm(ip, cps(octet[i].count), pc, 0);
           octet[i].alarmed = 0;
         }
         if (octet[i].count)
           debug(2, "%s for %s is %lu - ok", cp2str(pc->checkpoint),
-                printip(ip, 32, pc->by, pc->in),
-                (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
+                printip(ip, 32, pc->by, pc->in), cps(octet[i].count));
       }
       octet[i].count = 0;
     } else if (octet[i].octet) {
@@ -407,7 +408,7 @@ have_detailed:
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         debug(1, "%s for %s is %lu - DoS, turning detailed stats on",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
-              (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / ((curtime - last_check == 0) ? 1 : curtime - last_check)));
+              cps(octet[i].count));
         octet[i].used_time = curtime - expire_interval; /* remove on next check if no traffic */
         if ((octet[i].octet = calloc(256, sizeof(struct octet))) == NULL) {
           logwrite("Cannot allocate memory: %s", strerror(errno));
@@ -421,7 +422,7 @@ have_detailed:
       } else if (octet[i].count) {
         debug(2, "%s for %s is %lu - ok (no detailed stats)",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
-              (unsigned long)(octet[i].count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
+              cps(octet[i].count));
         octet[i].count = 0;
       }
     }
@@ -439,24 +440,24 @@ void check(void)
     if (pc->by == BYNONE) {
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         if (!pc->alarmed)
-          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 1);
+          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 1);
         else
-          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
+          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 2);
         pc->alarmed = 1;
       } else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         if (pc->alarmed)
-          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 2);
+          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 2);
         else
           debug(1, "%s for %s/%u is %lu - safe DoS", cp2str(pc->checkpoint),
                 inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
-                (unsigned long)(pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
+                cps(pc->count));
       } else {
         if (pc->count)
           debug(2, "%s for %s/%u is %lu - ok", cp2str(pc->checkpoint),
                 inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
-                (unsigned long)(pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check)));
+                cps(pc->count));
         if (pc->alarmed) {
-          exec_alarm((unsigned char *)&pc->ip, pc->count * (pc->checkpoint == BPS ? 8 : 1) / (curtime - last_check), pc, 0);
+          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 0);
           pc->alarmed = 0;
         }
       }

@@ -303,6 +303,10 @@ case x$withval in
     ;;
 esac
 
+AC_ARG_WITH(huge-counters,
+    [  --with-huge-counters    use 64-bit counters even for single IP-address],
+    [AC_DEFINE(WITH_LONGLONG_COUNTERS)],[])
+
 dnl Set dirs
 logdir=/var/log/dds
 AC_ARG_WITH(logdir,

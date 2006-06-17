@@ -11,9 +11,15 @@
 #define MAXUPLINKS	128
 #define MAXVRF		128
 
+#ifdef WITH_LONGLONG_COUNTERS
+typedef unsigned long long count_t;
+#else
+typedef unsigned long count_t;
+#endif
+
 struct octet {
 	union {
-		unsigned long long count; /* for leaf */
+		count_t count;            /* for leaf */
 		time_t used_time;         /* for non-leaf */
 	};
 	union {
