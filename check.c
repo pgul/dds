@@ -401,6 +401,10 @@ have_detailed:
                 printoctets(ip, level+1),
                 pc->in ? "from" : "to", cp2str(pc->checkpoint),
                 curtime-octet[i].used_time);
+        /* dangerous for memory leaks */
+        /* but all suboctets should not has more fresh used_time */
+        /* and thats because should be already expired and freed */
+        /* curtime should not be increased during recursive check() finction */
         free(octet[i].octet);
         octet[i].octet = NULL;
       }
