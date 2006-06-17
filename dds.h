@@ -58,12 +58,23 @@ struct checktype {
 	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 };
 
+struct recheck_t {
+  u_long s_addr, d_addr;
+  int len;
+  int in:8;
+  unsigned int pkts:24;
+  unsigned short d_port;
+  unsigned char proto, flags;
+};
+
+extern struct recheck_t *recheck_arr;
+extern int recheck_cur, recheck_size;
 extern time_t last_check;
 extern struct checktype *checkhead;
 extern char iface[];
 extern char logname[], snapfile[], pidfile[];
 extern char alarmcmd[], noalarmcmd[], contalarmcmd[], netflow[], *pflow;
-extern int  check_interval, expire_interval, reverse, verb;
+extern int  check_interval, expire_interval, reverse, verb, redo;
 extern uid_t uid;
 extern u_char *my_mac[];
 extern struct router_t *routers;

@@ -34,14 +34,7 @@ u_char *my_mac[MAXMYMACS];
 static u_char broadcast[ETHER_ADDR_LEN]={0xff,0xff,0xff,0xff,0xff,0xff};
 extern long snap_traf;
 extern FILE *fsnap;
-struct {
-  u_long s_addr, d_addr;
-  int len;
-  int in:8;
-  unsigned int pkts:24;
-  unsigned short d_port;
-  unsigned char proto, flags;
-} *recheck_arr;
+struct recheck_t *recheck_arr;
 int recheck_cur, recheck_size;
 
 static void putsnap(int flow, int in, u_char *src_mac, u_char *dst_mac, 
@@ -204,7 +197,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
   if (fsnap && !recheck)
     putsnap(flow, in, src_mac, dst_mac, src_ip, dst_ip, len, vlan, pkts);
   curtime = time(NULL);
-  if (!recheck && (recheck_arr || recheck_size == 0))
+  if (!recheck && (recheck_arr || recheck_size == 0) && redo)
   { /* save for future recheck */
     if (recheck_size == recheck_cur)
     {
