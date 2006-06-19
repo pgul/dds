@@ -49,7 +49,7 @@ static struct data5 {
 } *data5;
 
 static int sockfd = -1;
-static u_long flowip;
+u_long flowip;
 static unsigned short flowport;
 
 int bindport(char *netflow)

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
 #include <sys/socket.h>
@@ -29,8 +30,11 @@ static struct alarm_t
 	unsigned char ip[8];
 	u_long limit, safelimit, count;
 	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
+	char id[64];
 	struct alarm_t *next, *inhibited;
 } *alarm_head;
+
+static unsigned seq;
 
 void logwrite(char *format, ...)
 {
@@ -151,6 +155,14 @@ void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc)
 	strncpy(pa->contalarmcmd, pc->contalarmcmd, CMDLEN);
 	pa->count = count;
 	pa->reported = ALARM_NEW | ALARM_FOUND;
+	seq++;
+	if (seq < time(NULL)) seq = time(NULL);
+	snprintf(pa->id, sizeof(pa->id), "dds-%08x-%08x-%08lx",
+	         (unsigned int)getpid(), seq, 
+#ifdef WITH_PCAP
+	         my_mac[0] ? *(u_long *)(my_mac+2) :
+#endif
+	         flowip);
 	pa->next = alarm_head;
 	alarm_head = pa;
 }
@@ -174,6 +186,7 @@ static void alarm_event(struct alarm_t *pa, int event)
 		snprintf(str, sizeof(str), "%lu", pa->count);
 		chstring(&cmd, "%p", str);
 		chstring(&cmd, "%t", pa->in ? "to" : "from");
+		chstring(&cmd, "%i", pa->id);
 		run(cmd);
 		free(cmd);
 	}

@@ -84,6 +84,7 @@ extern int  check_interval, expire_interval, reverse, verb, redo, inhibit;
 extern uid_t uid;
 extern u_char *my_mac[];
 extern struct router_t *routers;
+extern u_long flowip;
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
              int in, int vlan, int pkts, int flow,
