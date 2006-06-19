@@ -37,19 +37,19 @@ enum ifoid_t { IFNAME, IFDESCR, IFALIAS, IFIP };
 #endif
 
 struct router_t {
-  u_long addr;
+	u_long addr;
 #ifdef DO_SNMP
-  char community[256];
-  int  ifnumber;
-  int  nifaces[NUM_OIDS];
-  struct routerdata {
-    unsigned short ifindex;
-    char *val;
-  } *data[NUM_OIDS];
+	char community[256];
+	int  ifnumber;
+	int  nifaces[NUM_OIDS];
+	struct routerdata {
+		unsigned short ifindex;
+		char *val;
+	} *data[NUM_OIDS];
 #endif
-  unsigned seq[MAXVRF];
-  int nuplinks, uplinks[MAXUPLINKS];
-  struct router_t *next;
+	unsigned seq[MAXVRF]; /* for future use */
+	int nuplinks, uplinks[MAXUPLINKS];
+	struct router_t *next;
 };
 
 struct checktype {
@@ -65,12 +65,12 @@ struct checktype {
 };
 
 struct recheck_t {
-  u_long s_addr, d_addr;
-  int len;
-  int in:8;
-  unsigned int pkts:24;
-  unsigned short d_port;
-  unsigned char proto, flags;
+	u_long s_addr, d_addr;
+	int len;
+	int in:8;
+	unsigned int pkts:24;
+	unsigned short d_port;
+	unsigned char proto, flags;
 };
 
 extern struct recheck_t *recheck_arr;
@@ -80,7 +80,7 @@ extern struct checktype *checkhead;
 extern char iface[];
 extern char logname[], snapfile[], pidfile[];
 extern char alarmcmd[], noalarmcmd[], contalarmcmd[], netflow[], *pflow;
-extern int  check_interval, expire_interval, reverse, verb, redo;
+extern int  check_interval, expire_interval, reverse, verb, redo, inhibit;
 extern uid_t uid;
 extern u_char *my_mac[];
 extern struct router_t *routers;
@@ -90,7 +90,8 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
              struct checktype *recheck, u_long local_ip);
 void check(void);
 int  config(char *name);
-void exec_alarm(unsigned char *ip, u_long count, struct checktype *p, int set);
+void exec_alarm(unsigned char *ip, u_long count, struct checktype *p);
+void run_alarms(void);
 char *cp2str(cp_type cp);
 char *printip(unsigned char *ip, int preflen, by_type by, int in);
 int  length(by_type by);

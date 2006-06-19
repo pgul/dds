@@ -371,20 +371,17 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     ip[level] = (unsigned char)i;
     if (level==len-1) {
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        if (!octet[i].alarmed)
-          exec_alarm(ip, cps(octet[i].count), pc, 1);
-        else
-          exec_alarm(ip, cps(octet[i].count), pc, 2);
+        exec_alarm(ip, cps(octet[i].count), pc);
         octet[i].alarmed = 1;
       } else if (octet[i].count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         if (octet[i].alarmed)
-          exec_alarm(ip, cps(octet[i].count), pc, 2);
+          exec_alarm(ip, cps(octet[i].count), pc);
         else
           debug(1, "%s for %s is %lu - safe DoS", cp2str(pc->checkpoint),
                 printip(ip, 32, pc->by, pc->in), cps(octet[i].count));
       } else {
         if (octet[i].alarmed) {
-          exec_alarm(ip, cps(octet[i].count), pc, 0);
+          exec_alarm(ip, cps(octet[i].count), pc);
           octet[i].alarmed = 0;
         }
         if (octet[i].count)
@@ -443,14 +440,11 @@ void check(void)
   for (pc=checkhead; pc; pc=pc->next) {
     if (pc->by == BYNONE) {
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        if (!pc->alarmed)
-          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 1);
-        else
-          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 2);
+        exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
         pc->alarmed = 1;
       } else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
         if (pc->alarmed)
-          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 2);
+          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
         else
           debug(1, "%s for %s/%u is %lu - safe DoS", cp2str(pc->checkpoint),
                 inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
@@ -461,7 +455,7 @@ void check(void)
                 inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
                 cps(pc->count));
         if (pc->alarmed) {
-          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc, 0);
+          exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
           pc->alarmed = 0;
         }
       }
@@ -471,6 +465,7 @@ void check(void)
       check_octet(pc, pc->octet, 0, c, curtime);
     }
   }
+  run_alarms();
   last_check = curtime;
   if (recheck_arr)
     debug(3, "check done, %u entries saved for recheck", recheck_cur);

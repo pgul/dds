@@ -30,7 +30,7 @@
 struct checktype *checkhead=NULL;
 char iface[32]=IFACE;
 char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
-int  check_interval, expire_interval, redo;
+int  check_interval, expire_interval, redo, inhibit;
 char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 char netflow[256], *pflow;
 uid_t uid;
@@ -261,6 +261,18 @@ static int parse_line(char *str)
       fprintf(stderr, "Unknown recheck value ignored: %s\n", p);
     return 0;
   }
+  if (strncmp(p, "inhibit=", 8)==0)
+  {
+    p+=8;
+    if (*p == 'y' || *p == 'Y')
+      inhibit=1;
+    else if (*p == 'n' || *p == 'N')
+      inhibit=0;
+    else
+      fprintf(stderr, "Unknown recheck value ignored: %s\n", p);
+    return 0;
+  }
+
   for (p=str; *p && !isspace(*p); p++);
   if (*p) *p++='\0';
   if (strchr(str, '=')) return 0; /* keyword */
@@ -441,6 +453,7 @@ int config(char *name)
   if (!pflow) old_netflow = strdup(netflow);
   netflow[0] = '\0';
   redo = 1;
+  inhibit = 1;
   check_interval=CHECK_INTERVAL;
   expire_interval=EXPIRE_INTERVAL;
   if (recheck_arr)
