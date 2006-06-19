@@ -28,6 +28,7 @@ esac
 AC_CHECK_FUNCS(daemon getifaddrs localtime_r)
 
 dnl Check for pcap
+withval=""
 AC_ARG_WITH(pcap,
             [  --with-pcap             packet capture support (default auto)],
             do_pcap=yes, do_pcap=no)
@@ -159,6 +160,7 @@ AC_TRY_COMPILE([
 
 dnl Check for snmp
 do_snmp=auto
+withval=""
 AC_ARG_WITH(snmp,
             [  --with-snmp             SNMP support (default auto)],
             do_snmp=yes, do_snmp=no)
