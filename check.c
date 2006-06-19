@@ -370,6 +370,10 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
   {
     ip[level] = (unsigned char)i;
     if (level==len-1) {
+      if (octet[i].count == (count_t)-1) {
+         warning("Counter for %s limited (rebuild with --with-huge-counters?)",
+                 printip(ip, 32, pc->by, pc->in));
+      }
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         exec_alarm(ip, cps(octet[i].count), pc);
         octet[i].alarmed = 1;
@@ -406,7 +410,7 @@ have_detailed:
         octet[i].octet = NULL;
       }
     } else if (level==3) {
-      if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
+      if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check) || octet[i].count == (count_t)-1) {
         debug(1, "%s for %s is %lu - DoS, turning detailed stats on",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
               cps(octet[i].count));
