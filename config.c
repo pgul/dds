@@ -204,13 +204,9 @@ static int parse_line(char *str)
     if (check_interval == 0) check_interval=CHECK_INTERVAL;
     return 0;
   }
-  if (strncmp(p, "noalarm-intervals=", 9)==0)
+  if (strncmp(p, "noalarm-intervals=", 18)==0)
   { alarm_flaps = atoi(p+18);
     if (alarm_flaps == 0) alarm_flaps = 1;
-    return 0;
-  }
-  { check_interval = atoi(p+9);
-    if (check_interval == 0) check_interval=CHECK_INTERVAL;
     return 0;
   }
   if (strncmp(p, "expire=", 7)==0)
