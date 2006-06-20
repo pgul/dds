@@ -30,7 +30,7 @@
 struct checktype *checkhead=NULL;
 char iface[32]=IFACE;
 char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
-int  check_interval, expire_interval, redo, inhibit;
+int  check_interval, expire_interval, redo, inhibit, alarm_flaps;
 char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 char netflow[256], *pflow;
 uid_t uid;
@@ -200,6 +200,15 @@ static int parse_line(char *str)
     return 0;
   }
   if (strncmp(p, "interval=", 9)==0)
+  { check_interval = atoi(p+9);
+    if (check_interval == 0) check_interval=CHECK_INTERVAL;
+    return 0;
+  }
+  if (strncmp(p, "noalarm-intervals=", 9)==0)
+  { alarm_flaps = atoi(p+18);
+    if (alarm_flaps == 0) alarm_flaps = 1;
+    return 0;
+  }
   { check_interval = atoi(p+9);
     if (check_interval == 0) check_interval=CHECK_INTERVAL;
     return 0;
@@ -454,6 +463,7 @@ int config(char *name)
   netflow[0] = '\0';
   redo = 1;
   inhibit = 1;
+  alarm_flaps = 1;
   check_interval=CHECK_INTERVAL;
   expire_interval=EXPIRE_INTERVAL;
   if (recheck_arr)

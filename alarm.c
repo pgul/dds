@@ -24,7 +24,7 @@
 
 static struct alarm_t
 {
-	int reported, in, preflen;
+	int reported, finished, in, preflen;
 	cp_type cp;
 	by_type by;
 	unsigned char ip[8];
@@ -235,9 +235,16 @@ void run_alarms(void)
 	/* 2. Run alarm events */
 	for (pa = alarm_head; pa; pa = pa->next) {
 		if (pa->count<pa->safelimit || !(pa->reported & ALARM_FOUND)) {
-			if ((pa->reported & ALARM_NEW) == 0)
-				alarm_event(pa, ALARM_FINISH);
-			pa->reported |= ALARM_FINISHED;
+			if (!(pa->reported & ALARM_FOUND))
+				pa->finished = alarm_flaps;
+			else
+				pa->finished++;
+			if (pa->finished >= alarm_flaps) {
+				if (!(pa->reported & ALARM_NEW))
+					alarm_event(pa, ALARM_FINISH);
+				pa->reported |= ALARM_FINISHED;
+			} else
+				alarm_event(pa, ALARM_CONT);
 			continue;
 		}
 		if (pa->reported & ALARM_NEW) {
@@ -249,6 +256,7 @@ void run_alarms(void)
 			continue;
 		}
 		/* found, not new, more then safelimit */
+		pa->finished = 0;
 		alarm_event(pa, ALARM_CONT);
 	}
 	/* 3. Free finished alarms */
