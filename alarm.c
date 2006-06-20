@@ -235,7 +235,7 @@ void run_alarms(void)
 	/* 2. Run alarm events */
 	for (pa = alarm_head; pa; pa = pa->next) {
 		if (pa->count<pa->safelimit || !(pa->reported & ALARM_FOUND)) {
-			if ((pa->reported & ALARM_NEW) != 0)
+			if ((pa->reported & ALARM_NEW) == 0)
 				alarm_event(pa, ALARM_FINISH);
 			pa->reported |= ALARM_FINISHED;
 			continue;
