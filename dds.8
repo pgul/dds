@@ -5,7 +5,7 @@ dds \- DoS/DDoS Detecting System
 
 .SH SYNOPSIS
 .B dds
-[\-d] [\-p] [\-r] [\-v] [\-h] [\-i \fIinterface\fP] [\fI<config>\fP]
+[\-d] [\-p] [\-r] [\-v] [\-h] [\-i \fI<iface>\fP] [\-b \fI<ip>:<port>\fP] [\fI<config>\fP]
 
 .SH DESCRIPTION
 .PP
@@ -25,11 +25,11 @@ supports netflow versions 1 and 5.
 .B -h
 Display a list of all commandline options.
 .TP 10
-.B -i \fIiface\fP
-Listen specified interface (override config settings)
+.B -i \fI<iface>\fP
+Listen specified interface (override config settings).
 .TP 10
-.B -i \fI[ip:]port\fP
-Receive netflow to specified ip and port (override config settings)
+.B -b \fI<ip>:<port>\fP
+Receive netflow to specified ip and port (override config settings).
 .TP 10
 .B -d
 Daemonize.
