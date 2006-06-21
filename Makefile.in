@@ -8,7 +8,7 @@ COPT=-Wall -funsigned-char @DEFS@ -DCONFDIR=\"@sysconfdir@\" @CFLAGS@
 	@echo Compiling $*.c...
 	@$(CC) -c $(COPT) -o $*.o $*.c
 
-SRCS=dds.c check.c config.c alarm.c flow.c
+SRCS=dds.c check.c config.c alarm.c flow.c @perlsrc@
 OBJS=${SRCS:.c=.o}
 
 all:	dds
@@ -22,6 +22,7 @@ check.o:	check.c dds.h Makefile
 config.o:	config.c dds.h Makefile
 alarm.o:	alarm.c dds.h Makefile
 flow.o:		flow.c dds.h Makefile
+ddsperl.o:	ddsperl.c dds.h Makefile
 
 install:	all
 	install dds $(prefix)/bin

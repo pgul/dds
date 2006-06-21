@@ -11,6 +11,14 @@
 #define MAXUPLINKS	128
 #define MAXVRF		128
 
+#define ALARM_NEW       1
+#define ALARM_FOUND     2
+#define ALARM_FINISHED  4
+
+#define ALARM_START     1
+#define ALARM_FINISH    2
+#define ALARM_CONT      3
+
 #ifdef WITH_LONGLONG_COUNTERS
 typedef unsigned long long count_t;
 #else
@@ -73,6 +81,18 @@ struct recheck_t {
 	unsigned char proto, flags;
 };
 
+struct alarm_t
+{
+	int reported, finished, in, preflen;
+	cp_type cp;
+	by_type by;
+	unsigned char ip[8];
+	u_long limit, safelimit, count;
+	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
+	char id[64];
+	struct alarm_t *next, *inhibited;
+};
+
 extern struct recheck_t *recheck_arr;
 extern int recheck_cur, recheck_size;
 extern time_t last_check;
@@ -105,3 +125,11 @@ int  bindport(char *netflow);
 void recv_flow(void);
 void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
           unsigned char prot, unsigned short dport, unsigned char flags);
+
+#ifdef DO_PERL
+int  perl_init(char *perlfile);
+void perl_done(void);
+int  perl_alarm_event(struct alarm_t *pa, int event);
+#else
+#define perl_done()
+#endif

@@ -14,26 +14,7 @@
 #include <arpa/inet.h>
 #include "dds.h"
 
-#define ALARM_NEW	1
-#define ALARM_FOUND	2
-#define ALARM_FINISHED	4
-
-#define ALARM_START	1
-#define ALARM_FINISH	2
-#define ALARM_CONT	3
-
-static struct alarm_t
-{
-	int reported, finished, in, preflen;
-	cp_type cp;
-	by_type by;
-	unsigned char ip[8];
-	u_long limit, safelimit, count;
-	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
-	char id[64];
-	struct alarm_t *next, *inhibited;
-} *alarm_head;
-
+static struct alarm_t *alarm_head;
 static unsigned seq;
 
 void logwrite(char *format, ...)
@@ -176,6 +157,9 @@ static void alarm_event(struct alarm_t *pa, int event)
 	         event == ALARM_START ? "detected" : (event == ALARM_FINISH ? "finished" : "continue"),
 	         pa->count, cp2str(pa->cp),
 		 pa->inhibited ? " (inhibited by more specific)" : "");
+#ifdef DO_PERL
+	perl_alarm_event(pa, event);
+#endif
 	if (pa->inhibited && inhibit) return;
 	cmd = (event == ALARM_START) ? pa->alarmcmd : (event == ALARM_FINISH ? pa->noalarmcmd : pa->contalarmcmd);
 	if (cmd[0]) {

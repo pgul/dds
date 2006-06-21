@@ -37,6 +37,10 @@ uid_t uid;
 struct router_t *routers;
 static struct router_t *cur_router;
 static struct checktype *checktail;
+#ifdef DO_PERL
+static char perlfile[256];
+static time_t perl_mtime;
+#endif
 
 #ifdef DO_SNMP
 static unsigned short get_ifindex(struct router_t*, enum ifoid_t, char **s);
@@ -117,7 +121,8 @@ static int parse_line(char *str)
       if (my_mac[i] == NULL) break;
     if (i == MAXMYMACS)
       printf("Too many mymacs (%d max), extra ignored\n", MAXMYMACS);
-    else {
+    else
+    {
       my_mac[i] = malloc(ETHER_ADDR_LEN);
       memcpy(my_mac[i], m, ETHER_ADDR_LEN);
       if (i < MAXMYMACS-1) my_mac[i+1] = NULL;
@@ -277,6 +282,13 @@ static int parse_line(char *str)
       fprintf(stderr, "Unknown recheck value ignored: %s\n", p);
     return 0;
   }
+#ifdef DO_PERL
+  if (strncmp(p, "perlfile=", 9)==0)
+  {
+    strncpy(perlfile, p+9, sizeof(perlfile)-1);
+    return 0;
+  }
+#endif
 
   for (p=str; *p && !isspace(*p); p++);
   if (*p) *p++='\0';
@@ -290,7 +302,8 @@ static int parse_line(char *str)
   /* create structure */
   pc = calloc(1, sizeof(*pc));
   while (*p && isspace(*p)) p++;
-  if (!*p) {
+  if (!*p)
+  {
 incorr:
     printf("Incorrect check line in config ignored\n");
     free(pc);
@@ -328,7 +341,8 @@ incorr:
   pc->safelimit = strtoul(p, NULL, 10);
   if (pc->safelimit == 0) goto incorr;
   if (pc->checkpoint == BPS) pc->safelimit /= 8;
-  for (;;) {
+  for (;;)
+  {
     while (*p && !isspace(*p)) p++;
     while (*p && isspace(*p)) p++;
     if (*p == '\0') break;
@@ -338,7 +352,8 @@ incorr:
       pc->by = BYDST;
     else if (strncmp(p, "bysrcdst", 6) == 0)
       pc->by = BYSRCDST;
-    else if (strncmp(p, "bydstport", 6) == 0) {
+    else if (strncmp(p, "bydstport", 6) == 0)
+    {
       pc->by = BYDSTPORT;
       if (pc->checkpoint == ICMP) {
         printf("bydstport selector is senseless for icmp traffic\n");
@@ -353,7 +368,8 @@ incorr:
   strcpy(pc->contalarmcmd, contalarmcmd);
   if (checkhead == NULL)
     checkhead = checktail = pc;
-  else {
+  else
+  {
     checktail->next = pc;
     checktail = pc;
   }
@@ -422,6 +438,10 @@ int config(char *name)
 {
   FILE *f;
   char *old_netflow = NULL;
+#ifdef DO_PERL
+  char *old_perlfile = NULL;
+  time_t old_mtime = 0;
+#endif
 
   if (strcmp(logname, "syslog") == 0)
     closelog();
@@ -457,6 +477,10 @@ int config(char *name)
   cur_router->addr = (u_long)-1;
   if (!pflow) old_netflow = strdup(netflow);
   netflow[0] = '\0';
+#ifdef DO_PERL
+  if (perlfile[0]) old_perlfile = strdup(perlfile);
+  perlfile[0] = '\0';
+#endif
   redo = 1;
   inhibit = 1;
   alarm_flaps = 1;
@@ -480,6 +504,29 @@ int config(char *name)
     }
     free(old_netflow);
   }
+#ifdef DO_PERL
+  if (perlfile)
+  {
+    struct stat st;
+    old_mtime = perl_mtime;
+    if (stat(perlfile, &st) == 0)
+      perl_mtime = st.st_mtime;
+    else
+    {
+      error("Cannot stat perlfile %s: %s", perlfile, strerror(errno));
+      perlfile[0] = '\0';
+    }
+  }
+  if (old_perlfile && (strcmp(perlfile, old_perlfile) || perl_mtime != old_mtime))
+  {
+    perl_done();
+    free(old_perlfile);
+    old_perlfile = NULL;
+  }
+  if (perlfile[0] && old_perlfile == NULL)
+    perl_init(perlfile);
+  if (old_perlfile) free(old_perlfile);
+#endif
   return 0;
 }
 

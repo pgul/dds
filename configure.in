@@ -4,6 +4,7 @@ AC_INIT(dds.c)
 
 dnl Checks for programs.
 AC_PROG_CC
+AC_PATH_PROG(PERL, perl, perl)
 
 CFLAGS=
 dnl Checks for header files.
@@ -123,6 +124,67 @@ case x$do_pcap in
       ], [struct pcap_pkthdr pk; pk.pkt_type;],
       AC_DEFINE(HAVE_PKT_TYPE) AC_MSG_RESULT(yes), AC_MSG_RESULT(no))
     ;;
+esac
+
+dnl Check for embedded perl
+AC_ARG_WITH(perl,
+            [  --with-perl             embedded perl support (default no)],
+            do_perl=yes, do_perl=no)
+case x$do_perl in
+  xyes)
+   AC_MSG_CHECKING(for libperl)
+   PERLDIR=`$PERL -MConfig -e 'print $Config{archlib}' 2>/dev/null`
+   if PERLCOPT=`$PERL -MExtUtils::Embed -e ccopts 2>/dev/null`
+   then
+     PERLLOPT=`$PERL -MExtUtils::Embed -e ldopts`
+     case x$PERLDIR in
+       x)
+         AC_MSG_RESULT(yes)
+         ;;
+       *)
+         AC_MSG_RESULT($PERLDIR)
+         ;;
+     esac
+   else
+     case x$PERLDIR in
+       x)
+         AC_MSG_RESULT(no)
+         ;;
+       *)
+         PERLCOPT="-I $PERLDIR/CORE -Dbool=char -DHAS_BOOL"
+         PERLLOPT="$PERLDIR/auto/DynaLoader/DynaLoader.a -L$PERLDIR/CORE -lperl -ldl -lcrypt -lm"
+         AC_CHECK_LIB(dl, main, PERLLOPT="$PERLLOPT -ldl")
+         AC_CHECK_LIB(crypt, main, PERLLOPT="$PERLLOPT -lcrypt")
+         AC_CHECK_LIB(m, main, PERLLOPT="$PERLLOPT -lm")
+         AC_CHECK_LIB(socket, main, PERLLOPT="$PERLLOPT -lsocket")
+         AC_MSG_RESULT($PERLDIR)
+         ;;
+     esac
+   fi
+   case x$PERLCOPT in
+     x)
+       ;;
+     *)
+       AC_MSG_CHECKING(for working libperl)
+       OLD_LIBS=$LIBS
+       OLD_CFLAGS=$CFLAGS
+       LIBS="$LIBS $PERLLOPT"
+       CFLAGS="$CFLAGS $PERLCOPT"
+       AC_TRY_RUN([
+          #include <EXTERN.h>
+          #include <perl.h>
+          #include <XSUB.h>
+          int main(int argc, char** argv, char** env) {
+            return perl_alloc() ? 0 : 1;
+          }],
+        AC_DEFINE(DO_PERL) AC_MSG_RESULT(yes); WORKING_PERL=yes;
+        perlsrc=ddsperl.c,
+        AC_MSG_RESULT(no); CFLAGS=$OLD_CFLAGS; LIBS=$OLD_LIBS,
+        AC_MSG_RESULT(cross-compiling. No assumptions made); CFLAGS=$OLD_CFLAGS; LIBS=$OLD_LIBS
+       )
+       ;;
+   esac
+   ;;
 esac
 
 dnl Check for trunk
@@ -320,6 +382,8 @@ dnl Set debug flags
 AC_ARG_WITH(debug,
      [  --with-debug            compile with debug info],
      [CFLAGS="-g $CFLAGS"],[CFLAGS="-O3 $CFLAGS"])
+
+AC_SUBST(perlsrc)
 
 AC_OUTPUT(Makefile)
 

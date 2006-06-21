@@ -146,13 +146,16 @@ void hup(int signo)
 {
   debug(1, "Received signal %d", signo);
   if (signo==SIGTERM || signo==SIGINT)
-  { unlink(pidfile);
+  { perl_done();
+    unlink(pidfile);
     exit(0);
   }
   if (signo==SIGHUP)
   {
     if (config(confname))
     { fprintf(stderr, "Config error!\n");
+      perl_done();
+      unlink(pidfile);
       exit(1);
     }
 #ifdef WITH_PCAP
@@ -189,6 +192,7 @@ void hup(int signo)
 #ifdef WITH_PCAP
     pcap_close(pk);
 #endif
+    perl_done();
     unlink(pidfile);
     execvp(saved_argv[0], saved_argv);
     exit(5);
@@ -490,6 +494,7 @@ int main(int argc, char *argv[])
     last_check = time(NULL);
     switchsignals(SIG_UNBLOCK);
     recv_flow();
+    perl_done();
     unlink(pidfile);
     if (strcmp(logname, "syslog") == 0)
       closelog();
@@ -565,6 +570,7 @@ int main(int argc, char *argv[])
       pcap_loop(pk, -1, dopkt, NULL);
       warning("pcap_loop error: %s", ebuf);
     } 
+    perl_done();
     unlink(pidfile);
     pcap_close(pk);
     if (strcmp(logname, "syslog") == 0)
@@ -572,10 +578,12 @@ int main(int argc, char *argv[])
   }
   else
   { warning("pcap_open_live fails: %s", ebuf);
+    perl_done();
   }
   return 0;
 #else
   error("Netflow IP and port not defined");
+  perl_done();
   return 1;
 #endif
 }
