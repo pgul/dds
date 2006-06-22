@@ -376,17 +376,19 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
       }
       if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         exec_alarm(ip, cps(octet[i].count), pc);
-        octet[i].alarmed = 1;
+        octet[i].alarmed = alarm_flaps;
       } else if (octet[i].count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
-        if (octet[i].alarmed)
+        if (octet[i].alarmed) {
           exec_alarm(ip, cps(octet[i].count), pc);
+          octet[i].alarmed = alarm_flaps;
+        }
         else
           debug(1, "%s for %s is %lu - safe DoS", cp2str(pc->checkpoint),
                 printip(ip, 32, pc->by, pc->in), cps(octet[i].count));
       } else {
         if (octet[i].alarmed) {
           exec_alarm(ip, cps(octet[i].count), pc);
-          octet[i].alarmed = 0;
+          octet[i].alarmed--;
         }
         if (octet[i].count)
           debug(2, "%s for %s is %lu - ok", cp2str(pc->checkpoint),
@@ -445,10 +447,12 @@ void check(void)
     if (pc->by == BYNONE) {
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
-        pc->alarmed = 1;
+        pc->alarmed = alarm_flaps;
       } else if (pc->count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
-        if (pc->alarmed)
+        if (pc->alarmed) {
           exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
+          pc->alarmed = alarm_flaps;
+        }
         else
           debug(1, "%s for %s/%u is %lu - safe DoS", cp2str(pc->checkpoint),
                 inet_ntoa(*(struct in_addr *)&pc->ip), pc->preflen,
@@ -460,7 +464,7 @@ void check(void)
                 cps(pc->count));
         if (pc->alarmed) {
           exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
-          pc->alarmed = 0;
+          pc->alarmed--;
         }
       }
       pc->count = 0;
