@@ -287,10 +287,10 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     } else {
       struct octet **po;
       unsigned char octetsarr[8], *octets;
-      int i, len;
+      int i, pclen;
 
       octets = octetsarr;
-      len = length(pc->by);
+      pclen = length(pc->by);
       if (pc->by == BYSRC)
         octets = (unsigned char *)&src_ip;
       else if (pc->by == BYDST)
@@ -303,7 +303,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
         memcpy(octetsarr+4, (unsigned char *)&dst_port, 2);
       }
       po = &pc->octet;
-      for (i=0; i<len; i++)
+      for (i=0; i<pclen; i++)
       {
         if (*po == NULL)
         {
@@ -325,7 +325,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
             exit(4);
           }
         }
-        if (i == len-1) break;
+        if (i == pclen-1) break;
         if (po[0][octets[i]].octet == NULL && i == 3) break; /* turn on detailed stats later */
         po[0][octets[i]].used_time = curtime;
         po = &po[0][octets[i]].octet;
