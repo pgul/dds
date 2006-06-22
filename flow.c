@@ -144,7 +144,7 @@ void recv_flow(void)
     n = select(max(servsock, sockfd) + 1, &r, NULL, NULL, NULL);
     if (n == -1)
     {
-      if (errno == EAGAIN) continue;
+      if (errno == EAGAIN || errno == EINTR) continue;
       error("select() error: %s", strerror(errno));
       break;
     }
@@ -178,7 +178,7 @@ void recv_flow(void)
     n = recvfrom(sockfd, databuf, sizeof(databuf), 0, (struct sockaddr *)&remote_addr, &sl);
     if (n == -1)
     {
-      if (errno == EAGAIN) continue;
+      if (errno == EAGAIN || errno == EINTR) continue;
       error("recvfrom error: %s", strerror(errno));
       break;
     }

@@ -319,7 +319,7 @@ void serv(void)
     FD_SET(servpipe[0], &r);
     n = select(max(servsock, servpipe[0]) + 1, &r, NULL, NULL, NULL);
     if (n == -1)
-    { if (errno == EAGAIN) continue;
+    { if (errno == EAGAIN || errno == EINTR) continue;
       error("select error: %s", strerror(errno));
       return;
     }
@@ -333,7 +333,7 @@ void serv(void)
     a_len = sizeof(client);
     new_sock = accept(servsock, (struct sockaddr *)&client, &a_len);
     if (new_sock == -1)
-    { if (errno == EAGAIN) continue;
+    { if (errno == EAGAIN || errno == EINTR) continue;
       error("accept error: %s", strerror(errno));
       return;
     }
