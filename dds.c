@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <syslog.h>
+#include <sys/wait.h>
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
@@ -145,6 +146,20 @@ static char *confname;
 void hup(int signo)
 {
   debug(1, "Received signal %d", signo);
+  if (signo==SIGCHLD)
+  { pid_t pid;
+    while ((pid = waitpid(-1, NULL, WNOHANG)) >= 0)
+    {
+      debug(1, "Process %u ended", pid);
+#ifdef WITH_PCAP
+      if (pid == servpid)
+      {
+        servpid = 0;
+        close(servpipe[1]);
+      }
+#endif
+    }
+  }
   if (signo==SIGTERM || signo==SIGINT)
   { perl_done();
     unlink(pidfile);
@@ -500,6 +515,7 @@ int main(int argc, char *argv[])
   signal(SIGUSR2, hup);
   signal(SIGTERM, hup);
   signal(SIGINT, hup);
+  signal(SIGCHLD, hup);
   signal(SIGINFO, hup);
   f=fopen(pidfile, "w");
   if (f)
