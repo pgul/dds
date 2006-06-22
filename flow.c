@@ -13,10 +13,6 @@
 #include <netinet/udp.h>
 #include "dds.h"
 
-#ifndef max
-#define	max(a, b)	((a) > (b) ? (a) : (b))
-#endif
-
 static struct head1 {
   short unsigned int version, count;
   unsigned int uptime, curtime, curnanosec;
@@ -129,17 +125,63 @@ void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
 
 void recv_flow(void)
 {
-  int ver, n, i, count;
+  int ver, n, i, count, new_sockfd;
   socklen_t sl;
-  struct sockaddr_in remote_addr;
+  struct sockaddr_in remote_addr, client;
   char databuf[MTU];
   char pktbuf[sizeof(struct ip)+max(sizeof(struct tcphdr),sizeof(struct udphdr))];
   struct ip *iphdr = (struct ip *)pktbuf;
   struct router_t *pr;
+  fd_set r;
+  socklen_t a_len;
+  pid_t pid;
 
-  while (sl=sizeof(remote_addr), memset(&remote_addr, 0, sizeof(remote_addr)),
-         (n = recvfrom(sockfd, databuf, sizeof(databuf), 0, (struct sockaddr *)&remote_addr, &sl)) != -1)
+  for (;;)
   {
+    FD_ZERO(&r);
+    FD_SET(sockfd, &r);
+    if (servsock != -1) FD_SET(servsock, &r);
+    n = select(max(servsock, sockfd) + 1, &r, NULL, NULL, NULL);
+    if (n == -1)
+    {
+      if (errno == EAGAIN) continue;
+      error("select() error: %s", strerror(errno));
+      break;
+    }
+    if (n == 0) continue;
+    if (FD_ISSET(servsock, &r))
+    {
+      a_len = sizeof(client);
+      new_sockfd = accept(servsock, (struct sockaddr *)&client, &a_len);
+      if (new_sockfd == -1)
+      {
+        warning("accept error: %s", strerror(errno));
+      }
+      else
+      {
+        /* fork because write alarm list can cause waiting for network */
+        pid = fork();
+        if (pid == 0)
+        {
+          print_alarms(new_sockfd);
+          exit(0);
+        }
+        if (pid == -1)
+          error("fork() error: %s", strerror(errno));
+        close(new_sockfd);
+      }
+    }
+    if (!FD_ISSET(sockfd, &r))
+      continue;
+    sl = sizeof(remote_addr);
+    memset(&remote_addr, 0, sizeof(remote_addr));
+    n = recvfrom(sockfd, databuf, sizeof(databuf), 0, (struct sockaddr *)&remote_addr, &sl);
+    if (n == -1)
+    {
+      if (errno == EAGAIN) continue;
+      error("recvfrom error: %s", strerror(errno));
+      break;
+    }
     if (n == 0) continue;
     for (pr=routers->next; pr; pr=pr->next)
     {

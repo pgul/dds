@@ -25,11 +25,6 @@
 #endif
 #include "dds.h"
 
-#ifndef max
-#define max(a, b)  ((a) > (b) ? (a) : (b))
-#define min(a, b)  ((a) < (b) ? (a) : (b))
-#endif
-
 #define cps(count) (unsigned long)((unsigned long long)(count) * (pc->checkpoint == BPS ? 8 : 1) / ((curtime > last_check) ? (curtime - last_check) : 1))
 #define addcount(count, p)	(((count) + (p) >= (count)) ? ((count) += (p)) : (count_t)-1)
 

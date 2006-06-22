@@ -148,6 +148,9 @@ void hup(int signo)
   if (signo==SIGTERM || signo==SIGINT)
   { perl_done();
     unlink(pidfile);
+#ifdef WITH_PCAP
+    if (servpid) kill(servpid, SIGTERM);
+#endif
     exit(0);
   }
   if (signo==SIGHUP)
@@ -168,6 +171,25 @@ void hup(int signo)
             piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
             my_mac[0][4], my_mac[0][5]);
     }
+    if (servport && !pflow && !netflow[0])
+    {
+      pipe(servpipe);
+      servpid = fork();
+      if (servpid == 0)
+      {
+        close(servpipe[1]);
+        bindserv();
+        serv();
+        exit(0);
+      }
+      close(servpipe[0]);
+    }
+  }
+  if (signo==SIGINFO)
+  {
+    /* print alarms to servpipe */
+    if (servpipe[1] && servpipe[1] != -1)
+      print_alarms(servpipe[1]);
 #endif
   }
   if (signo==SIGUSR1)
@@ -478,6 +500,7 @@ int main(int argc, char *argv[])
   signal(SIGUSR2, hup);
   signal(SIGTERM, hup);
   signal(SIGINT, hup);
+  signal(SIGINFO, hup);
   f=fopen(pidfile, "w");
   if (f)
   { fprintf(f, "%u\n", (unsigned)getpid());
@@ -501,6 +524,20 @@ int main(int argc, char *argv[])
     return 0;
   }
 #ifdef WITH_PCAP
+  my_pid = getpid();
+  if (servport)
+  {
+    pipe(servpipe);
+    servpid = fork();
+    if (servpid == 0)
+    {
+      close(servpipe[1]);
+      bindserv();
+      serv();
+      exit(0);
+    }
+    close(servpipe[0]);
+  }
   if (!piface) piface=iface;
   if (strcmp(piface, "all") == 0)
     piface = NULL;
@@ -580,6 +617,7 @@ int main(int argc, char *argv[])
   { warning("pcap_open_live fails: %s", ebuf);
     perl_done();
   }
+  if (servpid) kill(servpid, SIGTERM);
   return 0;
 #else
   error("Netflow IP and port not defined");

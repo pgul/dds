@@ -19,6 +19,14 @@
 #define ALARM_FINISH    2
 #define ALARM_CONT      3
 
+#ifndef SIGINFO
+#define SIGINFO		SIGIO
+#endif
+
+#ifndef max
+#define max(a, b)	((a) > (b) ? (a) : (b))
+#endif
+
 #ifdef WITH_LONGLONG_COUNTERS
 typedef unsigned long long count_t;
 #else
@@ -106,6 +114,12 @@ extern uid_t uid;
 extern u_char *my_mac[];
 extern struct router_t *routers;
 extern u_long flowip;
+extern unsigned short servport;
+extern int servsock;
+#ifdef WITH_PCAP
+extern int servpid, my_pid;
+extern int servpipe[2];
+#endif
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
              int in, int vlan, int pkts, int flow,
@@ -125,6 +139,9 @@ int  bindport(char *netflow);
 void recv_flow(void);
 void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
           unsigned char prot, unsigned short dport, unsigned char flags);
+int  bindserv(void);
+void serv(void);
+void print_alarms(int fd);
 
 #ifdef DO_PERL
 int  perl_init(char *perlfile);

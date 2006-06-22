@@ -41,6 +41,11 @@ static struct checktype *checktail;
 static char perlfile[256];
 static time_t perl_mtime;
 #endif
+int servsock = -1;
+unsigned short servport;
+#ifdef WITH_PCAP
+int servpid, my_pid, servpipe[2];
+#endif
 
 #ifdef DO_SNMP
 static unsigned short get_ifindex(struct router_t*, enum ifoid_t, char **s);
@@ -217,6 +222,10 @@ static int parse_line(char *str)
   if (strncmp(p, "expire=", 7)==0)
   { expire_interval = atoi(p+7);
     if (expire_interval == 0) expire_interval=EXPIRE_INTERVAL;
+    return 0;
+  }
+  if (strncmp(p, "serv-port=", 10)==0)
+  { servport = atoi(p+10);
     return 0;
   }
   if (strncmp(p, "user=", 5)==0)
@@ -434,6 +443,32 @@ static void freecheck(struct checktype *pc)
   free(pc);
 }
 
+int bindserv(void)
+{
+  /* bind servsock to servport */
+  struct sockaddr_in serv_addr;
+
+  servsock = socket(PF_INET, SOCK_STREAM, 0);
+  if (servsock == -1)
+  {
+    error("Can't create socket: %s", strerror(errno));
+    return -1;
+  }
+  memset(&serv_addr, 0, sizeof serv_addr);
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_addr.s_addr = htonl (INADDR_ANY);
+  serv_addr.sin_port = htons(servport);
+  if (bind(servsock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0)
+  {
+    error("Can't bind socket: %s", strerror(errno));
+    close(servsock);
+    servsock = -1;
+    return -1;
+  }
+  listen(servsock, 5);
+  return 0;
+}
+
 int config(char *name)
 {
   FILE *f;
@@ -490,7 +525,25 @@ int config(char *name)
     free(recheck_arr);
   recheck_arr = NULL;
   recheck_size = recheck_cur = 0;
+  if (servsock != -1)
+  {
+    close(servsock);
+    servsock = -1;
+  }
+#ifdef WITH_PCAP
+  if (servpid)
+  {
+    close(servpipe[1]);
+    servpipe[1] = -1;
+    kill(servpid, SIGTERM);
+    waitpid(servpid, NULL, 0);
+    servpid = 0;
+  }
+#endif
+  servport = 0;
+
   parse_file(f);
+
   fclose(f);
   if (strcmp(logname, "syslog") == 0)
     openlog("dds", LOG_PID, LOG_DAEMON);
@@ -504,6 +557,8 @@ int config(char *name)
     }
     free(old_netflow);
   }
+  if (servport && (pflow || netflow[0]))
+    bindserv();
 #ifdef DO_PERL
   if (perlfile)
   {

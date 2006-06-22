@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 #include <syslog.h>
 #include <sys/socket.h>
 #include <netinet/in_systm.h>
@@ -263,4 +264,126 @@ void run_alarms(void)
 		pa->inhibited = NULL;
 	}
 }
+
+void print_alarms(int fd)
+{
+	struct alarm_t *pa;
+	char str[256];
+
+	if (alarm_head == NULL) {
+		write(fd, "No alarms\n", 11);
+		return;
+	}
+	str[sizeof(str)-1] = '\0';
+	/* 1. Print non-inhibited alarms */
+	for (pa = alarm_head; pa; pa = pa->next) {
+		if (pa->inhibited) continue;
+		snprintf(str, sizeof(str)-1, "DoS %s %s: %lu %s\n",
+		        pa->in ? "to" : "from",
+		        printip(pa->ip, pa->preflen, pa->by, pa->in),
+			pa->count, cp2str(pa->cp));
+		write(fd, str, strlen(str));
+	}
+	/* 2. Print non-inhibited alarms */
+	for (pa = alarm_head; pa; pa = pa->next) {
+		if (!pa->inhibited) continue;
+		snprintf(str, sizeof(str)-1, "DoS %s %s: %lu %s (inhibited)\n",
+		        pa->in ? "to" : "from",
+		        printip(pa->ip, pa->preflen, pa->by, pa->in),
+			pa->count, cp2str(pa->cp));
+		write(fd, str, strlen(str));
+	}
+	write(fd, "", 1);
+}
+
+#ifdef WITH_PCAP
+void serv(void)
+{
+  fd_set r;
+  char *buf;
+  int new_sock, bufsize, listsize, sentsize, n;
+  struct sockaddr_in client;
+  socklen_t a_len;
+  pid_t pid;
+
+  bufsize = 16384;
+  buf = malloc(bufsize);
+  if (buf == NULL)
+  { error("Malloc failed: %s", strerror(errno));
+    return;
+  }
+  for (;;)
+  {
+    FD_ZERO(&r);
+    FD_SET(servsock, &r);
+    FD_SET(servpipe[0], &r);
+    n = select(max(servsock, servpipe[0]) + 1, &r, NULL, NULL, NULL);
+    if (n == -1)
+    { if (errno == EAGAIN) continue;
+      error("select error: %s", strerror(errno));
+      return;
+    }
+    if (n == 0) continue;
+    if (FD_ISSET(servpipe[0], &r))
+    { /* garbage? signal from not own process? */
+      /* read pipe to prevent block parent process */
+      read(servpipe[0], buf, bufsize);
+    }
+    if (FD_ISSET(servsock, &r) == 0) continue;
+    a_len = sizeof(client);
+    new_sock = accept(servsock, (struct sockaddr *)&client, &a_len);
+    if (new_sock == -1)
+    { if (errno == EAGAIN) continue;
+      error("accept error: %s", strerror(errno));
+      return;
+    }
+    /* send signal to parent process */
+    kill(my_pid, SIGINFO);
+    /* read info from pipe to buf */
+    listsize = 0;
+    for (;;)
+    {
+      if (listsize == bufsize)
+      {
+        buf = realloc(buf, bufsize *= 2);
+        if (buf == NULL)
+        {
+          error("realloc failed: %s", strerror(errno));
+          return;
+        }
+      }
+      n = read(servpipe[0], buf+listsize, bufsize-listsize);
+      if (n == -1)
+      {
+        error("read pipe failed: %s", strerror(errno));
+        return;
+      }
+      if (n == 0) continue;
+      if (memchr(buf+listsize, 0, n) == NULL)
+      {
+        listsize += n;
+        continue;
+      }
+      listsize += n;
+      break;
+    }
+    /* and write it to socket */
+    pid = fork();
+    if (pid == 0) {
+      sentsize = 0;
+      while (sentsize < listsize)
+      {
+        n = write(new_sock, buf + sentsize, listsize - sentsize);
+        if (n == -1)
+        { warning("write failed: %s", strerror(errno));
+          break;
+        }
+        sentsize += n;
+      }
+      exit(0);
+    }
+    close(new_sock);
+  }
+}
+#endif
 
