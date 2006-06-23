@@ -203,15 +203,6 @@ void hup(int signo)
       }
       close(servpipe[0]);
     }
-  }
-  if (signo==SIGINFO)
-  {
-    /* print alarms to servpipe */
-    if (servpipe[1] && servpipe[1] != -1)
-    {
-      print_alarms(servpipe[1]);
-      write(servpipe[1], "", 1);
-    }
 #endif
   }
   if (signo==SIGUSR1)
@@ -523,7 +514,6 @@ int main(int argc, char *argv[])
   signal(SIGTERM, hup);
   signal(SIGINT, hup);
   signal(SIGCHLD, hup);
-  signal(SIGINFO, hup);
   f=fopen(pidfile, "w");
   if (f)
   { fprintf(f, "%u\n", (unsigned)getpid());
@@ -567,6 +557,8 @@ int main(int argc, char *argv[])
       exit(0);
     }
     close(servpipe[0]);
+    print_alarms(servpipe[1]);
+    write(servpipe[1], "", 1);
   }
   if (!piface) piface=iface;
   if (strcmp(piface, "all") == 0)

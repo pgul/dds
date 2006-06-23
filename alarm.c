@@ -263,6 +263,12 @@ void run_alarms(void)
 		pa->reported = 0;
 		pa->inhibited = NULL;
 	}
+#ifdef WITH_PCAP
+	if (servpid) {
+		print_alarms(servpipe[1]);
+		write(servpipe[1], "", 1);
+	}
+#endif
 }
 
 void print_alarms(int fd)
@@ -326,9 +332,34 @@ void serv(void)
     }
     if (n == 0) continue;
     if (FD_ISSET(servpipe[0], &r))
-    { /* garbage? signal from not own process? */
-      /* read pipe to prevent block parent process */
-      read(servpipe[0], buf, bufsize);
+    { /* read info from pipe to buffer */
+      listsize = 0;
+      for (;;)
+      {
+        if (listsize == bufsize)
+        {
+          buf = realloc(buf, bufsize *= 2);
+          if (buf == NULL)
+          {
+            error("realloc failed: %s", strerror(errno));
+            return;
+          }
+        }
+        n = read(servpipe[0], buf+listsize, bufsize-listsize);
+        if (n == -1)
+        {
+          error("read pipe failed: %s", strerror(errno));
+          return;
+        }
+        if (n == 0) continue;
+        if (memchr(buf+listsize, 0, n) == NULL)
+        {
+          listsize += n;
+          continue;
+        }
+        listsize += n-1; /* do not send zero byte */
+        break;
+      }
     }
     if (FD_ISSET(servsock, &r) == 0) continue;
     a_len = sizeof(client);
@@ -338,49 +369,7 @@ void serv(void)
       error("accept error: %s", strerror(errno));
       return;
     }
-    /* send signal to parent process */
-    kill(my_pid, SIGINFO);
-    /* read info from pipe to buf */
-    listsize = 0;
-    for (;;)
-    {
-      struct timeval tv;
-
-      if (listsize == bufsize)
-      {
-        buf = realloc(buf, bufsize *= 2);
-        if (buf == NULL)
-        {
-          error("realloc failed: %s", strerror(errno));
-          return;
-        }
-      }
-      FD_ZERO(&r);
-      FD_SET(servpipe[0], &r);
-      tv.tv_sec = 3;
-      tv.tv_usec = 0;
-      n = select(servpipe[0]+1, &r, NULL, NULL, &tv);
-      if (n == 0)
-      {
-        kill(my_pid, SIGINFO);
-        continue;
-      }
-      n = read(servpipe[0], buf+listsize, bufsize-listsize);
-      if (n == -1)
-      {
-        error("read pipe failed: %s", strerror(errno));
-        return;
-      }
-      if (n == 0) continue;
-      if (memchr(buf+listsize, 0, n) == NULL)
-      {
-        listsize += n;
-        continue;
-      }
-      listsize += n-1; /* do not send zero byte */
-      break;
-    }
-    /* and write it to socket */
+    /* write buffer to socket */
     pid = fork();
     if (pid == 0) {
       sentsize = 0;

@@ -19,10 +19,6 @@
 #define ALARM_FINISH    2
 #define ALARM_CONT      3
 
-#ifndef SIGINFO
-#define SIGINFO		SIGIO
-#endif
-
 #ifndef max
 #define max(a, b)	((a) > (b) ? (a) : (b))
 #endif
