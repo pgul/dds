@@ -344,6 +344,8 @@ void serv(void)
     listsize = 0;
     for (;;)
     {
+      struct timeval tv;
+
       if (listsize == bufsize)
       {
         buf = realloc(buf, bufsize *= 2);
@@ -352,6 +354,16 @@ void serv(void)
           error("realloc failed: %s", strerror(errno));
           return;
         }
+      }
+      FD_ZERO(&r);
+      FD_SET(servpipe[0], &r);
+      tv.tv_sec = 3;
+      tv.tv_usec = 0;
+      n = select(servpipe[0]+1, &r, NULL, NULL, &tv);
+      if (n == 0)
+      {
+        kill(my_pid, SIGINFO);
+        continue;
       }
       n = read(servpipe[0], buf+listsize, bufsize-listsize);
       if (n == -1)
@@ -365,7 +377,7 @@ void serv(void)
         listsize += n;
         continue;
       }
-      listsize += n;
+      listsize += n-1; /* do not send zero byte */
       break;
     }
     /* and write it to socket */
