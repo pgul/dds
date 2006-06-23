@@ -556,6 +556,12 @@ int main(int argc, char *argv[])
     {
       close(servpipe[1]);
       bindserv();
+      if (uid) {
+        if (setuid(uid))
+          warning("setuid failed: %s", strerror(errno));
+        else
+          debug(1, "Setuid to uid %d done", uid);
+      }
       switchsignals(SIG_UNBLOCK);
       serv();
       exit(0);
