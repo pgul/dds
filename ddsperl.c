@@ -34,7 +34,7 @@
 
 static PerlInterpreter *perl = NULL;
 static int perl_ok_alarm_start, perl_ok_alarm_finish, perl_ok_alarm_cont;
-static int perl_ok_onexit;
+static int perl_ok_onexit, perl_ok_check;
 
 static int perl_on_exit(void);
 
@@ -135,7 +135,7 @@ int perl_init(char *perlfile)
 
   debug(1, "perl_init(): %s", perlfile);
   perl_ok_alarm_start = perl_ok_alarm_finish = perl_ok_alarm_cont = 0;
-  perl_ok_onexit = 0;
+  perl_ok_onexit = perl_ok_check = 0;
   /* try to find out the actual path to perl script and set dir to -I */
   i = 1;
   perlargs[i++] = "-e";
@@ -186,6 +186,7 @@ int perl_init(char *perlfile)
   if (perl_get_cv("alarm_finish",  FALSE)) perl_ok_alarm_finish = 1;
   if (perl_get_cv("alarm_cont",    FALSE)) perl_ok_alarm_cont   = 1;
   if (perl_get_cv("on_exit",       FALSE)) perl_ok_onexit       = 1;
+  if (perl_get_cv("check",         FALSE)) perl_ok_check        = 1;
   debug(2, "perl_init(): end");
   return 0;
 }
@@ -266,6 +267,44 @@ int perl_alarm_event(struct alarm_t *pa, int event)
   }
   return 1;
 }
+
+int perl_check(unsigned char *ip, u_long count, struct checktype *pc)
+{
+  char *func;
+  int rc;
+  SV *svret, *svcount, *svin, *svcp, *svby, *svip;
+  SV *svlimit, *svsafelimit, *svinterval;
+
+  func = "check";
+  if (perl_ok_check)
+  {
+    dSP;
+    if ((svcount = perl_get_sv("count", TRUE))) sv_setiv(svcount, count);
+    if ((svin    = perl_get_sv("in",    TRUE))) sv_setiv(svin,    pc->in);
+    if ((svlimit = perl_get_sv("limit", TRUE))) sv_setiv(svlimit, pc->limit);
+    if ((svsafelimit = perl_get_sv("safelimit", TRUE))) sv_setiv(svsafelimit, pc->safelimit);
+    if ((svcp    = perl_get_sv("cp",    TRUE))) sv_setpv(svcp, cp2str(pc->checkpoint));
+    if ((svby    = perl_get_sv("by",    TRUE))) sv_setpv(svcp, by2str(pc->by));
+    if ((svip    = perl_get_sv("ip",    TRUE))) sv_setpv(svip, printip(ip, pc->preflen, pc->by, pc->in));
+    if ((svinterval = perl_get_sv("interval", TRUE))) sv_setiv(svinterval, check_interval);
+    ENTER;
+    SAVETMPS;
+    PUSHMARK(SP);
+    PUTBACK;
+    perl_call_pv("check", G_EVAL|G_SCALAR);
+    SPAGAIN;
+    svret=POPs;
+    if (!SvOK(svret)) rc = 1;
+    else rc = SvIV(svret);
+    PUTBACK;
+    FREETMPS;
+    LEAVE;
+    if (SvTRUE(ERRSV)) sub_err(func);
+    return rc;
+  }
+  return 1;
+}
+
 
 static int perl_on_exit(void)
 {

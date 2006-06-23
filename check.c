@@ -365,6 +365,9 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
   {
     ip[level] = (unsigned char)i;
     if (level==len-1) {
+#ifdef DO_PERL
+      perl_check(ip, cps(octet[i].count), pc);
+#endif
       if (octet[i].count == (count_t)-1) {
          warning("Counter for %s limited (rebuild with --with-huge-counters?)",
                  printip(ip, 32, pc->by, pc->in));
@@ -440,6 +443,10 @@ void check(void)
   if (curtime == last_check) return;
   for (pc=checkhead; pc; pc=pc->next) {
     if (pc->by == BYNONE) {
+#ifdef DO_PERL
+      perl_check((unsigned char *)&pc->ip, cps(pc->count), pc);
+#endif
+
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
         pc->alarmed = alarm_flaps;

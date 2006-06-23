@@ -22,6 +22,12 @@ sub alarm_cont
 {
 }
 
+sub check
+# called for every counter
+# $id and $inhibited variables is not defined
+{
+}
+
 sub on_exit
 {
 }

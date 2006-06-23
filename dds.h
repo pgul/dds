@@ -147,6 +147,7 @@ void print_alarms(int fd);
 int  perl_init(char *perlfile);
 void perl_done(void);
 int  perl_alarm_event(struct alarm_t *pa, int event);
+int  perl_check(unsigned char *ip, u_long count, struct checktype *pc);
 #else
 #define perl_done()
 #endif
