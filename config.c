@@ -9,6 +9,7 @@
 #include <syslog.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <pwd.h>
 #include <netinet/in_systm.h>
@@ -466,6 +467,7 @@ int bindserv(void)
     return -1;
   }
   listen(servsock, 5);
+  debug(1, "Listen service port %d", servport);
   return 0;
 }
 

@@ -145,7 +145,11 @@ static char *confname;
 
 void hup(int signo)
 {
+#ifdef HAVE_STRSIGNAL
+  debug(1, "Received signal %s (%d)", strsignal(signo), signo);
+#else
   debug(1, "Received signal %d", signo);
+#endif
   if (signo==SIGCHLD)
   { pid_t pid;
     while ((pid = waitpid(-1, NULL, WNOHANG)) >= 0)
@@ -166,7 +170,7 @@ void hup(int signo)
 #ifdef WITH_PCAP
     if (servpid) kill(servpid, SIGTERM);
 #endif
-    exit(0);
+    _exit(0);
   }
   if (signo==SIGHUP)
   {
@@ -174,7 +178,7 @@ void hup(int signo)
     { fprintf(stderr, "Config error!\n");
       perl_done();
       unlink(pidfile);
-      exit(1);
+      _exit(1);
     }
 #ifdef WITH_PCAP
     if (my_mac[0] == NULL && (!pflow || netflow[0]))
@@ -195,7 +199,7 @@ void hup(int signo)
         close(servpipe[1]);
         bindserv();
         serv();
-        exit(0);
+        _exit(0);
       }
       close(servpipe[0]);
     }
@@ -232,7 +236,7 @@ void hup(int signo)
     perl_done();
     unlink(pidfile);
     execvp(saved_argv[0], saved_argv);
-    exit(5);
+    _exit(5);
   }
   signal(signo, hup);
 }
@@ -549,6 +553,7 @@ int main(int argc, char *argv[])
     {
       close(servpipe[1]);
       bindserv();
+      switchsignals(SIG_UNBLOCK);
       serv();
       exit(0);
     }
