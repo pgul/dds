@@ -152,7 +152,7 @@ void hup(int signo)
 #endif
   if (signo==SIGCHLD)
   { pid_t pid;
-    while ((pid = waitpid(-1, NULL, WNOHANG)) >= 0)
+    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0)
     {
       debug(1, "Process %u ended", pid);
 #ifdef WITH_PCAP
