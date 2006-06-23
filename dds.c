@@ -208,7 +208,10 @@ void hup(int signo)
   {
     /* print alarms to servpipe */
     if (servpipe[1] && servpipe[1] != -1)
+    {
       print_alarms(servpipe[1]);
+      write(servpipe[1], "", 1);
+    }
 #endif
   }
   if (signo==SIGUSR1)

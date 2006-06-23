@@ -271,29 +271,30 @@ void print_alarms(int fd)
 	char str[256];
 
 	if (alarm_head == NULL) {
-		write(fd, "No alarms\n", 11);
+		strncpy(str, "200-No alarms\n200\n", sizeof(str));
+		write(fd, str, strlen(str));
 		return;
 	}
 	str[sizeof(str)-1] = '\0';
 	/* 1. Print non-inhibited alarms */
 	for (pa = alarm_head; pa; pa = pa->next) {
 		if (pa->inhibited) continue;
-		snprintf(str, sizeof(str)-1, "DoS %s %s: %lu %s\n",
-		        pa->in ? "to" : "from",
-		        printip(pa->ip, pa->preflen, pa->by, pa->in),
-			pa->count, cp2str(pa->cp));
+		snprintf(str, sizeof(str)-1, "500-DoS %s %s: %lu %s\n",
+		         pa->in ? "to" : "from",
+		         printip(pa->ip, pa->preflen, pa->by, pa->in),
+			 pa->count, cp2str(pa->cp));
 		write(fd, str, strlen(str));
 	}
 	/* 2. Print non-inhibited alarms */
 	for (pa = alarm_head; pa; pa = pa->next) {
 		if (!pa->inhibited) continue;
-		snprintf(str, sizeof(str)-1, "DoS %s %s: %lu %s (inhibited)\n",
-		        pa->in ? "to" : "from",
-		        printip(pa->ip, pa->preflen, pa->by, pa->in),
-			pa->count, cp2str(pa->cp));
+		snprintf(str, sizeof(str)-1, "500-DoS %s %s: %lu %s (inhibited)\n",
+		         pa->in ? "to" : "from",
+		         printip(pa->ip, pa->preflen, pa->by, pa->in),
+			 pa->count, cp2str(pa->cp));
 		write(fd, str, strlen(str));
 	}
-	write(fd, "", 1);
+	write(fd, "500\n", 4);
 }
 
 #ifdef WITH_PCAP
