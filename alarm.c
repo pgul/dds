@@ -191,6 +191,8 @@ void run_alarms(void)
 	int iplen;
 
 	/* 1. Inhibit alarms */
+	for (pa = alarm_head; pa; pa = pa->next)
+		pa->inhibited = NULL;
 	for (pa = alarm_head; pa; pa = pa->next) {
 		iplen = length(pa->by);
 		for (ppa = alarm_head; ppa; ppa = ppa->next) {
@@ -259,10 +261,8 @@ void run_alarms(void)
 		free(pa);
 	}
 	/* 4. Clear reported flags */
-	for (pa = alarm_head; pa; pa = pa->next) {
+	for (pa = alarm_head; pa; pa = pa->next)
 		pa->reported = 0;
-		pa->inhibited = NULL;
-	}
 #ifdef WITH_PCAP
 	if (servpid) {
 		print_alarms(servpipe[1]);
