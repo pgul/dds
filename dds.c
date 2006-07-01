@@ -235,7 +235,7 @@ void hup(int signo)
   signal(signo, hup);
 }
 
-static void switchsignals(int how)
+void switchsignals(int how)
 {
   sigset_t sigset;
 

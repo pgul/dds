@@ -255,7 +255,7 @@ void run_alarms(void)
 		} else
 			pa = pa->next;
 	}
-	if (alarm_head && alarm_head->reported & ALARM_FINISHED) {
+	if (alarm_head && (alarm_head->reported & ALARM_FINISHED)) {
 		pa = alarm_head;
 		alarm_head = alarm_head->next;
 		free(pa);

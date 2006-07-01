@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <signal.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
@@ -125,7 +127,8 @@ void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
 
 void recv_flow(void)
 {
-  int ver, n, i, count, new_sockfd;
+  int ver, n, i, count, new_sockfd, maxsock;
+  int oldsockfd, oldservsock;
   socklen_t sl;
   struct sockaddr_in remote_addr, client;
   char databuf[MTU];
@@ -135,20 +138,37 @@ void recv_flow(void)
   fd_set r;
   socklen_t a_len;
   pid_t pid;
+  struct timeval tv;
 
+  /* sockfd and servsock can be changed by signal */
+  switchsignals(SIG_BLOCK);
   for (;;)
   {
     FD_ZERO(&r);
     FD_SET(sockfd, &r);
     if (servsock != -1) FD_SET(servsock, &r);
-    n = select(max(servsock, sockfd) + 1, &r, NULL, NULL, NULL);
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    maxsock = max(servsock, sockfd) + 1;
+    switchsignals(SIG_UNBLOCK);
+    n = select(maxsock, &r, NULL, NULL, &tv);
+    oldsockfd = sockfd;
+    oldservsock = servsock;
+    switchsignals(SIG_BLOCK);
     if (n == -1)
     {
       if (errno == EAGAIN || errno == EINTR) continue;
+      if (errno == EBADF && (sockfd != oldsockfd || servsock != oldservsock))
+        continue;
       error("select() error: %s", strerror(errno));
       break;
     }
-    if (n == 0) continue;
+    if (n == 0)
+    {
+      if (time(NULL) - last_check >= check_interval)
+        check();
+      continue;
+    }
     if (FD_ISSET(servsock, &r))
     {
       a_len = sizeof(client);
@@ -261,4 +281,5 @@ void recv_flow(void)
     { /* unknown netflow version, ignore */
     }
   }
+  switchsignals(SIG_UNBLOCK);
 }

@@ -138,6 +138,7 @@ void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
 int  bindserv(void);
 void serv(void);
 void print_alarms(int fd);
+void switchsignals(int how);
 
 #ifdef DO_PERL
 int  perl_init(char *perlfile);
