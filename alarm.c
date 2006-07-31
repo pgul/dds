@@ -314,6 +314,7 @@ void serv(void)
   pid_t pid;
 
   bufsize = 16384;
+  listsize = 0;
   buf = malloc(bufsize);
   if (buf == NULL)
   { error("Malloc failed: %s", strerror(errno));
