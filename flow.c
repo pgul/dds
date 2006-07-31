@@ -61,7 +61,7 @@ int bindport(char *netflow)
     flowip = inet_addr(netflow);
     *p++ = ':';
   } else {
-    flowip = (u_long)-1;
+    flowip = INADDR_ANY;
     p = netflow;
   }
   flowport = atoi(p);
