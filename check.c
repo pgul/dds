@@ -157,13 +157,15 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
   u_long dst_ip = *(u_long *)&(ip_hdr->ip_dst);
   u_short dst_port;
 
+  if (allmacs)
+    in = (allmacs == 1) ? 1 : 0;
   if (in != -1)
   {
     if (reverse) in ^= 1;
     remote = in ? src_ip : dst_ip;
     local  = in ? dst_ip : src_ip;
   }
-  if (dst_mac)
+  if (dst_mac && !allmacs)
   {
     int i;
 

@@ -113,7 +113,7 @@ extern u_long flowip;
 extern unsigned short servport;
 extern int servsock;
 #ifdef WITH_PCAP
-extern int servpid, my_pid;
+extern int servpid, my_pid, allmacs;
 extern int servpipe[2];
 #endif
 

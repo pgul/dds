@@ -181,7 +181,7 @@ void hup(int signo)
       _exit(1);
     }
 #ifdef WITH_PCAP
-    if (my_mac[0] == NULL && (!pflow || netflow[0]))
+    if (my_mac[0] == NULL && (!pflow || netflow[0]) && !allmacs)
     {
       my_mac[0] = malloc(ETHER_ADDR_LEN);
       get_mac(piface, my_mac[0]);
@@ -601,7 +601,7 @@ int main(int argc, char *argv[])
 #else
       if (linktype == DLT_EN10MB
 #endif
-          && my_mac[0] == NULL)
+          && my_mac[0] == NULL && !allmacs)
       {
         my_mac[0] = malloc(ETHER_ADDR_LEN);
         get_mac(piface, my_mac[0]);

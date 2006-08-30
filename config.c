@@ -45,7 +45,7 @@ static time_t perl_mtime;
 int servsock = -1;
 unsigned short servport;
 #ifdef WITH_PCAP
-int servpid, my_pid, servpipe[2];
+int servpid, my_pid, servpipe[2], allmacs;
 #endif
 
 #ifdef DO_SNMP
@@ -115,23 +115,30 @@ static int parse_line(char *str)
   p=str;
 #ifdef WITH_PCAP
   if (strncmp(p, "mymac=", 6)==0)
-  { 
-    short int m[3];
-    int i;
-
-    sscanf(p+6, "%04hx.%04hx.%04hx", m, m+1, m+2);
-    m[0] = htons(m[0]);
-    m[1] = htons(m[1]);
-    m[2] = htons(m[2]);
-    for (i=0; i<MAXMYMACS; i++)
-      if (my_mac[i] == NULL) break;
-    if (i == MAXMYMACS)
-      printf("Too many mymacs (%d max), extra ignored\n", MAXMYMACS);
+  {
+    if (strncmp(p+6, "all-in", 6) == 0)
+      allmacs=2;
+    else if (strncmp(p+6, "all-out", 7) == 0)
+      allmacs=1;
     else
-    {
-      my_mac[i] = malloc(ETHER_ADDR_LEN);
-      memcpy(my_mac[i], m, ETHER_ADDR_LEN);
-      if (i < MAXMYMACS-1) my_mac[i+1] = NULL;
+    { 
+      short int m[3];
+      int i;
+
+      sscanf(p+6, "%04hx.%04hx.%04hx", m, m+1, m+2);
+      m[0] = htons(m[0]);
+      m[1] = htons(m[1]);
+      m[2] = htons(m[2]);
+      for (i=0; i<MAXMYMACS; i++)
+        if (my_mac[i] == NULL) break;
+      if (i == MAXMYMACS)
+        printf("Too many mymacs (%d max), extra ignored\n", MAXMYMACS);
+      else
+      {
+        my_mac[i] = malloc(ETHER_ADDR_LEN);
+        memcpy(my_mac[i], m, ETHER_ADDR_LEN);
+        if (i < MAXMYMACS-1) my_mac[i+1] = NULL;
+      }
     }
     return 0;
   }
@@ -502,6 +509,7 @@ int config(char *name)
       free(my_mac[i]);
       my_mac[i] = NULL;
     }
+    allmacs = 0;
   }
 #endif
   for (cur_router=routers; cur_router;)
