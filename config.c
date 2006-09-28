@@ -439,8 +439,8 @@ static void freeoctet(struct octet *po, int level, int levels)
 
   if (level < levels)
     for (i=0; i<256; i++)
-      if (po[i].octet)
-        freeoctet(po[i].octet, level+1, levels);
+      if (po[i].u2.octet)
+        freeoctet(po[i].u2.octet, level+1, levels);
   free(po);
 }
 

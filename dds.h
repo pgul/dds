@@ -33,11 +33,11 @@ struct octet {
 	union {
 		count_t count;            /* for leaf */
 		time_t used_time;         /* for non-leaf */
-	};
+	} u1;
 	union {
 		int alarmed;              /* for leaf */
 		struct octet *octet;      /* for non-leaf */
-	};
+	} u2;
 };
 
 typedef enum { PPS, BPS, SYN, UDP, ICMP } cp_type;

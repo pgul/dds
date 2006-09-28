@@ -7,10 +7,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in_systm.h>
-#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
@@ -328,16 +328,16 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
           }
         }
         if (i == pclen-1) break;
-        if (po[0][octets[i]].octet == NULL && i == 3) break; /* turn on detailed stats later */
-        po[0][octets[i]].used_time = curtime;
-        po = &po[0][octets[i]].octet;
+        if (po[0][octets[i]].u2.octet == NULL && i == 3) break; /* turn on detailed stats later */
+        po[0][octets[i]].u1.used_time = curtime;
+        po = &po[0][octets[i]].u2.octet;
       }
       if (pc->checkpoint == BPS)
-        addcount(po[0][octets[i]].count, len);
+        addcount(po[0][octets[i]].u1.count, len);
       else if (pc->checkpoint == SYN)
-        addcount(po[0][octets[i]].count, 1);
+        addcount(po[0][octets[i]].u1.count, 1);
       else
-        addcount(po[0][octets[i]].count, pkts);
+        addcount(po[0][octets[i]].u1.count, pkts);
     }
     if (pc->last) break;
   }
@@ -368,56 +368,56 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     ip[level] = (unsigned char)i;
     if (level==len-1) {
 #ifdef DO_PERL
-      perl_check(ip, cps(octet[i].count), pc);
+      perl_check(ip, cps(octet[i].u1.count), pc);
 #endif
-      if (octet[i].count == (count_t)-1) {
+      if (octet[i].u1.count == (count_t)-1) {
          warning("Counter for %s limited (rebuild with --with-huge-counters?)",
                  printip(ip, 32, pc->by, pc->in));
       }
-      if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check)) {
-        exec_alarm(ip, cps(octet[i].count), pc);
-        octet[i].alarmed = alarm_flaps;
-      } else if (octet[i].count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
-        if (octet[i].alarmed) {
-          exec_alarm(ip, cps(octet[i].count), pc);
-          octet[i].alarmed = alarm_flaps;
+      if (octet[i].u1.count >= (unsigned long long)pc->limit * (curtime - last_check)) {
+        exec_alarm(ip, cps(octet[i].u1.count), pc);
+        octet[i].u2.alarmed = alarm_flaps;
+      } else if (octet[i].u1.count >= (unsigned long long)pc->safelimit * (curtime - last_check)) {
+        if (octet[i].u2.alarmed) {
+          exec_alarm(ip, cps(octet[i].u1.count), pc);
+          octet[i].u2.alarmed = alarm_flaps;
         }
         else
           debug(1, "%s for %s is %lu - safe DoS", cp2str(pc->checkpoint),
-                printip(ip, 32, pc->by, pc->in), cps(octet[i].count));
+                printip(ip, 32, pc->by, pc->in), cps(octet[i].u1.count));
       } else {
-        if (octet[i].alarmed) {
-          exec_alarm(ip, cps(octet[i].count), pc);
-          octet[i].alarmed--;
+        if (octet[i].u2.alarmed) {
+          exec_alarm(ip, cps(octet[i].u1.count), pc);
+          octet[i].u2.alarmed--;
         }
-        if (octet[i].count)
+        if (octet[i].u1.count)
           debug(2, "%s for %s is %lu - ok", cp2str(pc->checkpoint),
-                printip(ip, 32, pc->by, pc->in), cps(octet[i].count));
+                printip(ip, 32, pc->by, pc->in), cps(octet[i].u1.count));
       }
-      octet[i].count = 0;
-    } else if (octet[i].octet) {
+      octet[i].u1.count = 0;
+    } else if (octet[i].u2.octet) {
 have_detailed:
-      check_octet(pc, octet[i].octet, level+1, ip, curtime);
-      if (curtime-octet[i].used_time >= expire_interval) {
+      check_octet(pc, octet[i].u2.octet, level+1, ip, curtime);
+      if (curtime-octet[i].u1.used_time >= expire_interval) {
         if (verb >= 3)
           debug(3, "Expire %s %s %s, unused time %u",
                 printoctets(ip, level+1),
                 pc->in ? "from" : "to", cp2str(pc->checkpoint),
-                curtime-octet[i].used_time);
+                curtime-octet[i].u1.used_time);
         /* dangerous for memory leaks */
         /* but all suboctets should not has more fresh used_time */
         /* and thats because should be already expired and freed */
         /* curtime should not be increased during recursive check() function */
-        free(octet[i].octet);
-        octet[i].octet = NULL;
+        free(octet[i].u2.octet);
+        octet[i].u2.octet = NULL;
       }
     } else if (level==3) {
-      if (octet[i].count >= (unsigned long long)pc->limit * (curtime - last_check) || octet[i].count == (count_t)-1) {
+      if (octet[i].u1.count >= (unsigned long long)pc->limit * (curtime - last_check) || octet[i].u1.count == (count_t)-1) {
         debug(1, "%s for %s is %lu - DoS, turning detailed stats on",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
-              cps(octet[i].count));
-        octet[i].used_time = curtime - expire_interval; /* remove on next check if no traffic */
-        if ((octet[i].octet = calloc(256, sizeof(struct octet))) == NULL) {
+              cps(octet[i].u1.count));
+        octet[i].u1.used_time = curtime - expire_interval; /* remove on next check if no traffic */
+        if ((octet[i].u2.octet = calloc(256, sizeof(struct octet))) == NULL) {
           logwrite("Cannot allocate memory: %s", strerror(errno));
           fprintf(stderr, "Cannot allocate memory\n");
           exit(4);
@@ -426,11 +426,11 @@ have_detailed:
           reprocess(pc, *(u_long *)ip);
           goto have_detailed;
         }
-      } else if (octet[i].count) {
+      } else if (octet[i].u1.count) {
         debug(2, "%s for %s is %lu - ok (no detailed stats)",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
-              cps(octet[i].count));
-        octet[i].count = 0;
+              cps(octet[i].u1.count));
+        octet[i].u1.count = 0;
       }
     }
   }
