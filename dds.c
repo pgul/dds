@@ -475,7 +475,11 @@ int main(int argc, char *argv[])
     saved_argv[i]=argv[i];
   confname=CONFNAME;
   daemonize=promisc=0;
-  while ((i=getopt(argc, argv, "dhprvi:?")) != -1)
+  while ((i=getopt(argc, argv, "db:hrv?"
+#ifdef WITH_PCAP
+                                         "pi:"
+#endif
+				  )) != -1)
   {
     switch (i)
     {
