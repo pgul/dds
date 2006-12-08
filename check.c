@@ -28,8 +28,10 @@
 #define cps(count) (unsigned long)((unsigned long long)(count) * (pc->checkpoint == BPS ? 8 : 1) / ((curtime > last_check) ? (curtime - last_check) : 1))
 #define addcount(count, p)	(((count) + (p) >= (count)) ? ((count) += (p)) : (count_t)-1)
 
+#ifdef WITH_PCAP
 u_char *my_mac[MAXMYMACS];
 static u_char broadcast[ETHER_ADDR_LEN]={0xff,0xff,0xff,0xff,0xff,0xff};
+#endif
 extern long snap_traf;
 extern FILE *fsnap;
 struct recheck_t *recheck_arr;
@@ -157,14 +159,17 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
   u_long dst_ip = *(u_long *)&(ip_hdr->ip_dst);
   u_short dst_port;
 
+#ifdef WITH_PCAP
   if (allmacs)
     in = (allmacs == 1) ? 1 : 0;
+#endif
   if (in != -1)
   {
     if (reverse) in ^= 1;
     remote = in ? src_ip : dst_ip;
     local  = in ? dst_ip : src_ip;
   }
+#ifdef WITH_PCAP
   if (dst_mac && !allmacs)
   {
     int i;
@@ -193,6 +198,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     if (i == MAXMYMACS)
       return;
   }
+#endif
   if (recheck && local != recheck_local) return;
   if (fsnap && !recheck)
     putsnap(flow, in, src_mac, dst_mac, src_ip, dst_ip, len, vlan, pkts);
