@@ -188,6 +188,8 @@ void recv_flow(void)
         }
         if (pid == -1)
           error("fork() error: %s", strerror(errno));
+        else
+          debug(1, "print_alarms: start process %u", pid);
         close(new_sockfd);
       }
     }
