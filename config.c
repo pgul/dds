@@ -363,13 +363,13 @@ incorr:
     while (*p && !isspace(*p)) p++;
     while (*p && isspace(*p)) p++;
     if (*p == '\0') break;
-    if (strncmp(p, "bysrc", 6) == 0)
+    if (strncmp(p, "bysrc", 5) == 0)
       pc->by = BYSRC;
-    else if (strncmp(p, "bydst", 6) == 0)
+    else if (strncmp(p, "bydst", 5) == 0)
       pc->by = BYDST;
-    else if (strncmp(p, "bysrcdst", 6) == 0)
+    else if (strncmp(p, "bysrcdst", 8) == 0)
       pc->by = BYSRCDST;
-    else if (strncmp(p, "bydstport", 6) == 0)
+    else if (strncmp(p, "bydstport", 8) == 0)
     {
       pc->by = BYDSTPORT;
       if (pc->checkpoint == ICMP) {

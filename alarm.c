@@ -384,7 +384,10 @@ void serv(void)
         sentsize += n;
       }
       exit(0);
-    }
+    } else if (pid==-1)
+      error("cannot fork: %s", strerror(errno));
+    else
+      debug("serv: process %u started", pid);
     close(new_sock);
   }
 }

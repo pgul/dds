@@ -200,7 +200,10 @@ void hup(int signo)
         bindserv();
         serv();
         _exit(0);
-      }
+      } else if (servpid == -1)
+        error("Cannot fork: %s", strerror(errno));
+      else
+        debug(1, "process %u started", servpid);
       close(servpipe[0]);
     }
 #endif
@@ -559,7 +562,10 @@ int main(int argc, char *argv[])
       switchsignals(SIG_UNBLOCK);
       serv();
       exit(0);
-    }
+    } else if (servpid == -1)
+      error("Cannot fork: %s", strerror(errno));
+    else
+      debug("process %u started", servpid);
     close(servpipe[0]);
     print_alarms(servpipe[1]);
     write(servpipe[1], "", 1);
