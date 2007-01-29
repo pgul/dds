@@ -508,7 +508,8 @@ int main(int argc, char *argv[])
     return 1;
   }
   if (pflow)
-    bindport(pflow);
+    if (bindport(pflow) == -1)
+      return 1;
   if (daemonize)
     daemon(0, 0);
   if (strcmp(logname, "syslog") == 0)

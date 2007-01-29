@@ -563,7 +563,8 @@ int config(char *name)
     {
       /* restart netflow listen process */
       /* ... */
-      bindport(netflow);
+      if (bindport(netflow) == -1)
+        return -1;
     }
     free(old_netflow);
   }
