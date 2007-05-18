@@ -98,7 +98,7 @@ static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
   }
 }
 
-static int parse_line(char *str)
+static int parse_line(char *str, char *fname, int nline)
 {
   char *p;
   struct checktype *pc;
@@ -172,7 +172,7 @@ static int parse_line(char *str)
     { if (strcmp(p, "any")==0)
         cur_router->addr=(u_long)-1;
       else
-        warning("Warning: Router %s not found", p);
+        warning("Warning: Router %s not found (%s:%d)", p, fname, nline);
       return 0;
     }
     /* use only first address */
@@ -285,7 +285,7 @@ static int parse_line(char *str)
     else if (*p == 'n' || *p == 'N')
       redo=0;
     else
-      fprintf(stderr, "Unknown recheck value ignored: %s\n", p);
+      fprintf(stderr, "Unknown recheck value ignored (%s:%d): %s\n", fname, nline, p);
     return 0;
   }
   if (strncmp(p, "inhibit=", 8)==0)
@@ -296,7 +296,7 @@ static int parse_line(char *str)
     else if (*p == 'n' || *p == 'N')
       inhibit=0;
     else
-      fprintf(stderr, "Unknown recheck value ignored: %s\n", p);
+      fprintf(stderr, "Unknown inhibit value ignored (%s:%d): %s\n", fname, nline, p);
     return 0;
   }
 #ifdef DO_PERL
@@ -313,7 +313,7 @@ static int parse_line(char *str)
   /* it's alarm rule */
   if (strcmp(str, "check") != 0)
   {
-    printf("Unknown keyword %s in config ignored\n", str);
+    printf("Unknown keyword %s in config ignored (%s:%d)\n", str, fname, nline);
     return 0;
   }
   /* create structure */
@@ -322,7 +322,7 @@ static int parse_line(char *str)
   if (!*p)
   {
 incorr:
-    printf("Incorrect check line in config ignored\n");
+    printf("Incorrect check line %d in config file %s ignored\n", nline, fname);
     free(pc);
     return 0;
   }
@@ -358,6 +358,11 @@ incorr:
   pc->safelimit = strtoul(p, NULL, 10);
   if (pc->safelimit == 0) goto incorr;
   if (pc->checkpoint == BPS) pc->safelimit /= 8;
+  if (pc->safelimit > pc->limit)
+  {
+    printf("Warning: safelimit is more then hardlimit\n");
+    pc->safelimit = pc->limit;
+  }
   for (;;)
   {
     while (*p && !isspace(*p)) p++;
@@ -393,28 +398,31 @@ incorr:
   return 0;
 }
 
-static int parse_file(FILE *f)
+static int parse_file(FILE *f, char *fname)
 {
   FILE *finc;
   char str[256];
   char *p, *p1;
+  int nline;
 
   alarmcmd[0] = noalarmcmd[0] = contalarmcmd[0] = '\0';
+  nline = 0;
   while (fgets(str, sizeof(str), f))
   {
+    nline++;
     if (strncasecmp(str, "@include", 8) == 0 && isspace(str[8]))
     {
       for (p=str+9; *p && isspace(*p); p++);
       if (*p=='\"')
       {
         p++;
-	p1=strchr(p, '\"');
-	if (p1==NULL)
-	{
+        p1=strchr(p, '\"');
+        if (p1==NULL)
+        {
           printf("Unmatched quotes in include, ignored: %s\n", str);
-	  continue;
-	}
-	*p1='\0';
+          continue;
+        }
+        *p1='\0';
       } else
       { for (p1=p; *p1 && !isspace(*p1); p1++);
         *p1='\0';
@@ -422,13 +430,13 @@ static int parse_file(FILE *f)
       if ((finc=fopen(p, "r")) == NULL)
       {
         printf("Can't open %s: %s, include ignored\n", p, strerror(errno));
-	continue;
+        continue;
       }
-      parse_file(finc);
+      parse_file(finc, p);
       fclose(finc);
       continue;
     }
-    parse_line(str);
+    parse_line(str, fname, nline);
   } 
   return 0;
 }
@@ -552,7 +560,7 @@ int config(char *name)
 #endif
   servport = 0;
 
-  parse_file(f);
+  parse_file(f, name);
 
   fclose(f);
   if (strcmp(logname, "syslog") == 0)
