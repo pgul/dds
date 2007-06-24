@@ -32,7 +32,7 @@
 u_char *my_mac[MAXMYMACS];
 static u_char broadcast[ETHER_ADDR_LEN]={0xff,0xff,0xff,0xff,0xff,0xff};
 #endif
-extern long snap_traf;
+extern long snap_start;
 extern FILE *fsnap;
 struct recheck_t *recheck_arr;
 int recheck_cur, recheck_size;
@@ -73,10 +73,9 @@ static void putsnap(int flow, int in, u_char *src_mac, u_char *dst_mac,
         str_src_ip, str_dst_ip, len);
   }
   fflush(fsnap);
-  if ((snap_traf-=len) <= 0)
+  if (snap_start + SNAP_TIME < time(NULL))
   { fclose(fsnap);
     fsnap = NULL;
-    snap_traf=0;
   }
 }
 
@@ -371,6 +370,7 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
   len = length(pc->by);
   for (i=0; i<256; i++)
   {
+    if (level == 0 && (pflow || netflow[0])) check_sockets();
     ip[level] = (unsigned char)i;
     if (level==len-1) {
 #ifdef DO_PERL
@@ -454,7 +454,6 @@ void check(void)
 #ifdef DO_PERL
       perl_check((unsigned char *)&pc->ip, cps(pc->count), pc);
 #endif
-
       if (pc->count >= (unsigned long long)pc->limit * (curtime - last_check)) {
         exec_alarm((unsigned char *)&pc->ip, cps(pc->count), pc);
         pc->alarmed = alarm_flaps;
@@ -482,6 +481,7 @@ void check(void)
       unsigned char c[8];
       check_octet(pc, pc->octet, 0, c, curtime);
     }
+    check_sockets();
   }
   run_alarms();
   last_check = curtime;

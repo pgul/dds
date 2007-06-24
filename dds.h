@@ -3,6 +3,7 @@
 #define MTU		2048
 #define LOGNAME		LOGDIR "/dds.log"
 #define SNAPFILE	LOGDIR "/snap"
+#define SNAP_TIME	60
 #define PIDFILE		"/var/run/dds.pid"
 #define CHECK_INTERVAL	60
 #define EXPIRE_INTERVAL	300
@@ -10,6 +11,7 @@
 #define MAXMYMACS	128
 #define MAXUPLINKS	128
 #define MAXVRF		128
+#define QSIZE		4096	/* ~6M queue */
 
 #define ALARM_NEW       1
 #define ALARM_FOUND     2
@@ -99,6 +101,7 @@ struct alarm_t
 
 extern struct recheck_t *recheck_arr;
 extern int recheck_cur, recheck_size;
+extern int need_reconfig;
 extern time_t last_check;
 extern struct checktype *checkhead;
 extern char iface[];
@@ -112,6 +115,7 @@ extern struct router_t *routers;
 extern u_long flowip;
 extern unsigned short servport;
 extern int servsock;
+extern char *confname;
 #ifdef WITH_PCAP
 extern int servpid, my_pid, allmacs;
 extern int servpipe[2];
@@ -122,6 +126,8 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
              struct checktype *recheck, u_long local_ip);
 void check(void);
 int  config(char *name);
+void reconfig(void);
+int  check_sockets(void);
 void exec_alarm(unsigned char *ip, u_long count, struct checktype *p);
 void run_alarms(void);
 char *cp2str(cp_type cp);

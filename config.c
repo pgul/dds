@@ -604,6 +604,44 @@ int config(char *name)
   return 0;
 }
 
+void reconfig(void)
+{
+  need_reconfig = 0;
+  if (config(confname))
+  { fprintf(stderr, "Config error!\n");
+    perl_done();
+    unlink(pidfile);
+    exit(1);
+  }
+#ifdef WITH_PCAP
+  if (my_mac[0] == NULL && (!pflow || netflow[0]) && !allmacs)
+  {
+    my_mac[0] = malloc(ETHER_ADDR_LEN);
+    get_mac(piface, my_mac[0]);
+    my_mac[1] = NULL;
+    debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x",
+          piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
+          my_mac[0][4], my_mac[0][5]);
+  }
+  if (servport && !pflow && !netflow[0])
+  {
+    pipe(servpipe);
+    servpid = fork();
+    if (servpid == 0)
+    {
+      close(servpipe[1]);
+      bindserv();
+      serv();
+      _exit(0);
+    } else if (servpid == -1)
+      error("Cannot fork: %s", strerror(errno));
+    else
+      debug(1, "process %u started", servpid);
+    close(servpipe[0]);
+  }
+#endif
+}
+
 #ifdef DO_SNMP
 /* find ifindex by snmp param */
 #ifdef NET_SNMP

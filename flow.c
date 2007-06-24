@@ -46,6 +46,14 @@ static struct data5 {
   unsigned short pad2;
 } *data5;
 
+static struct
+{
+  struct sockaddr_in remote_addr;
+  int  n;
+  char databuf[MTU];
+} queue[QSIZE];
+
+static int head, tail;
 static int sockfd = -1;
 u_long flowip;
 static unsigned short flowport;
@@ -125,109 +133,130 @@ void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
   }
 }
 
+int check_sockets(void)
+{
+  int n;
+  socklen_t a_len, sl;
+  fd_set r;
+  struct timeval tv;
+  int new_sockfd, maxsock;
+  pid_t pid;
+  struct sockaddr_in client;
+
+  FD_ZERO(&r);
+  if ((tail+1)%QSIZE != head)
+    FD_SET(sockfd, &r);
+  else
+    warning("Queue buffer full (too slow CPU for this flow?)");
+  if (servsock != -1) FD_SET(servsock, &r);
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+  if (head != tail) tv.tv_sec = 0;
+  maxsock = max(servsock, sockfd) + 1;
+  switchsignals(SIG_UNBLOCK);
+  n = select(maxsock, &r, NULL, NULL, &tv);
+  switchsignals(SIG_BLOCK);
+  if (n == -1)
+  {
+    if (errno == EAGAIN || errno == EINTR) return 0;
+    error("select() error: %s", strerror(errno));
+    return -1;
+  }
+  if (n == 0)
+    return 0;
+  if (FD_ISSET(servsock, &r))
+  {
+    a_len = sizeof(client);
+    new_sockfd = accept(servsock, (struct sockaddr *)&client, &a_len);
+    if (new_sockfd == -1)
+    {
+      warning("accept error: %s", strerror(errno));
+    }
+    else
+    {
+      /* fork because write alarm list can cause waiting for network */
+      pid = fork();
+      if (pid == 0)
+      {
+        print_alarms(new_sockfd);
+        exit(0);
+      }
+      if (pid == -1)
+        error("fork() error: %s", strerror(errno));
+      else
+        debug(1, "print_alarms: start process %u", pid);
+      close(new_sockfd);
+    }
+  }
+  if (!FD_ISSET(sockfd, &r))
+    return 0;
+  sl = sizeof(queue[tail].remote_addr);
+  memset(&queue[tail].remote_addr, 0, sizeof(queue[tail].remote_addr));
+  n = recvfrom(sockfd, queue[tail].databuf, sizeof(queue[tail].databuf), 0, (struct sockaddr *)&queue[tail].remote_addr, &sl);
+  if (n == -1)
+  {
+    if (errno != EAGAIN && errno != EINTR)
+      error("recvfrom error: %s", strerror(errno));
+  }
+  else if (n > 0)
+  {
+    queue[tail].n = n;
+    tail++;
+    if (tail==QSIZE) tail=0;
+  }
+  return n;
+}
+
 void recv_flow(void)
 {
-  int ver, n, i, count, new_sockfd, maxsock;
-  int oldsockfd, oldservsock;
-  socklen_t sl;
-  struct sockaddr_in remote_addr, client;
-  char databuf[MTU];
+  int ver, i, count, n;
+  struct sockaddr_in *remote_addr;
+  char *databuf;
   char pktbuf[sizeof(struct ip)+max(sizeof(struct tcphdr),sizeof(struct udphdr))];
   struct ip *iphdr = (struct ip *)pktbuf;
   struct router_t *pr;
-  fd_set r;
-  socklen_t a_len;
-  pid_t pid;
-  struct timeval tv;
 
   /* sockfd and servsock can be changed by signal */
   switchsignals(SIG_BLOCK);
   for (;;)
   {
-    FD_ZERO(&r);
-    FD_SET(sockfd, &r);
-    if (servsock != -1) FD_SET(servsock, &r);
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-    maxsock = max(servsock, sockfd) + 1;
-    switchsignals(SIG_UNBLOCK);
-    n = select(maxsock, &r, NULL, NULL, &tv);
-    oldsockfd = sockfd;
-    oldservsock = servsock;
-    switchsignals(SIG_BLOCK);
-    if (n == -1)
-    {
-      if (errno == EAGAIN || errno == EINTR) continue;
-      if (errno == EBADF && (sockfd != oldsockfd || servsock != oldservsock))
-        continue;
-      error("select() error: %s", strerror(errno));
-      break;
-    }
-    if (n == 0)
-    {
-      if (time(NULL) - last_check >= check_interval)
-        check();
-      continue;
-    }
-    if (FD_ISSET(servsock, &r))
-    {
-      a_len = sizeof(client);
-      new_sockfd = accept(servsock, (struct sockaddr *)&client, &a_len);
-      if (new_sockfd == -1)
-      {
-        warning("accept error: %s", strerror(errno));
-      }
-      else
-      {
-        /* fork because write alarm list can cause waiting for network */
-        pid = fork();
-        if (pid == 0)
-        {
-          print_alarms(new_sockfd);
-          exit(0);
-        }
-        if (pid == -1)
-          error("fork() error: %s", strerror(errno));
-        else
-          debug(1, "print_alarms: start process %u", pid);
-        close(new_sockfd);
-      }
-    }
-    if (!FD_ISSET(sockfd, &r))
-      continue;
-    sl = sizeof(remote_addr);
-    memset(&remote_addr, 0, sizeof(remote_addr));
-    n = recvfrom(sockfd, databuf, sizeof(databuf), 0, (struct sockaddr *)&remote_addr, &sl);
-    if (n == -1)
-    {
-      if (errno == EAGAIN || errno == EINTR) continue;
-      error("recvfrom error: %s", strerror(errno));
-      break;
-    }
-    if (n == 0) continue;
+    if (need_reconfig) reconfig();
+    if (time(NULL) - last_check >= check_interval)
+      check();
+    if (check_sockets() < 0) break;
+    if (head == tail) continue;
+    remote_addr = &queue[head].remote_addr;
     for (pr=routers->next; pr; pr=pr->next)
     {
-      if (pr->addr == (u_long)-1 || pr->addr == remote_addr.sin_addr.s_addr)
+      if (pr->addr == (u_long)-1 || pr->addr == remote_addr->sin_addr.s_addr)
         break;
     }
+    databuf = queue[head].databuf;
+    n = queue[head].n;
     if (!pr)
     { 
       pr = routers;
       if (pr->nuplinks == 0)
-      { warning("Packet from unknown router %s ignored", inet_ntoa(remote_addr.sin_addr));
-        continue;
+      { warning("Packet from unknown router %s ignored", inet_ntoa(remote_addr->sin_addr));
+        goto nextpkt;
       }
     }
     ver = ntohs(*(short int *)databuf);
     if (ver == 1)
     {
       if (n < sizeof(struct head1))
-        continue;
+      {
+        warning("Too small pkt ignored");
+        goto nextpkt;
+      }
       head1 = (struct head1 *)databuf;
       if (n != sizeof(*head1)+ntohs(head1->count)*sizeof(*data1))
-        continue;
+      {
+        warning("Pkt with wrong size ignored");
+        goto nextpkt;
+      }
       data1 = (struct data1 *)(head1+1);
-      count=ntohs(head1->count);
+      count = ntohs(head1->count);
       for (i=0; i<count; i++)
       {
         unsigned long bytes;
@@ -252,12 +281,18 @@ void recv_flow(void)
     else if (ver == 5)
     {
       if (n < sizeof(struct head5))
-        continue;
+      {
+        warning("Too small pkt ignored");
+        goto nextpkt;
+      }
       head5 = (struct head5 *)databuf;
       if (n != sizeof(*head5)+ntohs(head5->count)*sizeof(*data5))
+      {
+        warning("Pkt with wrong size ignored");
         continue;
+      }
       data5 = (struct data5 *)(head5+1);
-      count=ntohs(head5->count);
+      count = ntohs(head5->count);
       for (i=0; i<count; i++)
       {
         unsigned long bytes;
@@ -280,8 +315,11 @@ void recv_flow(void)
       }
     }
     else
-    { /* unknown netflow version, ignore */
+    { warning("Unknown netflow version %u ignored", ver);
     }
+nextpkt:
+    head++;
+    if (head == QSIZE) head=0;
   }
   switchsignals(SIG_UNBLOCK);
 }

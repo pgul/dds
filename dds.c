@@ -136,12 +136,13 @@ static char *dlt[] = {
  "bsd/os slip", "bsd/os ppp", "lane 802.3", "atm" };
 static char *piface=NULL;
 #endif
-long snap_traf;
+long snap_start;
 FILE *fsnap;
 int  reverse, verb;
 time_t last_check;
 static char *saved_argv[20];
-static char *confname;
+char *confname;
+int need_reconfig;
 
 void hup(int signo)
 {
@@ -164,7 +165,7 @@ void hup(int signo)
 #endif
     }
   }
-  if (signo==SIGTERM || signo==SIGINT)
+  else if (signo==SIGTERM || signo==SIGINT)
   { perl_done();
     unlink(pidfile);
 #ifdef WITH_PCAP
@@ -172,59 +173,32 @@ void hup(int signo)
 #endif
     _exit(0);
   }
-  if (signo==SIGHUP)
+  else if (signo==SIGHUP)
   {
-    if (config(confname))
-    { fprintf(stderr, "Config error!\n");
-      perl_done();
-      unlink(pidfile);
-      _exit(1);
-    }
-#ifdef WITH_PCAP
-    if (my_mac[0] == NULL && (!pflow || netflow[0]) && !allmacs)
-    {
-      my_mac[0] = malloc(ETHER_ADDR_LEN);
-      get_mac(piface, my_mac[0]);
-      my_mac[1] = NULL;
-      debug(1, "mac-addr for %s is %02x:%02x:%02x:%02x:%02x:%02x",
-            piface, my_mac[0][0], my_mac[0][1], my_mac[0][2], my_mac[0][3],
-            my_mac[0][4], my_mac[0][5]);
-    }
-    if (servport && !pflow && !netflow[0])
-    {
-      pipe(servpipe);
-      servpid = fork();
-      if (servpid == 0)
-      {
-        close(servpipe[1]);
-        bindserv();
-        serv();
-        _exit(0);
-      } else if (servpid == -1)
-        error("Cannot fork: %s", strerror(errno));
-      else
-        debug(1, "process %u started", servpid);
-      close(servpipe[0]);
-    }
-#endif
+    if (pflow || netflow[0])
+      need_reconfig=1;
+    else
+      reconfig();
   }
-  if (signo==SIGUSR1)
-  { /* snap 100M of traffic */
-    int wassnap=1;
-    if (fsnap) fclose(fsnap);
-    else wassnap=0;
-    snap_traf=100*1024*1024; 
-    fsnap=fopen(snapfile, "a");
-    if (fsnap==NULL)
-    { snap_traf=0;
-      warning("Can't open %s: %s!", snapfile, strerror(errno));
+  else if (signo==SIGUSR1)
+  { /* snap traffic during SNAP_TIME */
+    time_t curtime;
+
+    if (fsnap)
+    { fclose(fsnap);
+      fsnap=fopen(snapfile, "a");
+      if (fsnap == NULL)
+        warning("Cannot open %s: %s", snapfile, strerror(errno));
+    } else
+    { fsnap=fopen(snapfile, "a");
+      if (fsnap==NULL)
+        warning("Cannot open %s: %s", snapfile, strerror(errno));
     }
-    else if (!wassnap)
-    { time_t curtime=time(NULL);
+    if (fsnap)
       fprintf(fsnap, "\n\n----- %s\n", ctime(&curtime));
-    }
+    snap_start = curtime;
   }
-  if (signo==SIGUSR2)
+  else if (signo==SIGUSR2)
   { /* restart myself */
     setuid(0);
 #ifdef WITH_PCAP
