@@ -707,7 +707,7 @@ static int snmpwalk(struct router_t *router, enum ifoid_t noid)
   /* get the initial object and subtree */
   memset(&session, 0, sizeof(session));
   snmp_sess_init(&session);
-  init_snmp("flowd");
+  init_snmp("dds");
   /* open an SNMP session */
   strcpy(ipbuf, inet_ntoa(*(struct in_addr *)&router->addr));
   session.peername = ipbuf;
@@ -717,7 +717,7 @@ static int snmpwalk(struct router_t *router, enum ifoid_t noid)
   oid=oid2oid(noid);
   debug(1, "Do snmpwalk %s %s %s", ipbuf, router->community, oid);
   if ((ss = snmp_open(&session)) == NULL)
-  { snmp_sess_perror("flowd", &session);
+  { snmp_sess_perror("dds", &session);
     return 1;
   }
   debug(6, "snmp session opened");
@@ -742,7 +742,7 @@ static int snmpwalk(struct router_t *router, enum ifoid_t noid)
         warning("snmpget response error");
     } else {
       warning("snmpget status error");
-      snmp_sess_perror("flowd", ss);
+      snmp_sess_perror("dds", ss);
     }
     if (response) snmp_free_pdu(response);
     break;
@@ -843,7 +843,7 @@ static int snmpwalk(struct router_t *router, enum ifoid_t noid)
       exitval = 2;
     } else {    /* status == STAT_ERROR */
       warning("SNMP Error");
-      snmp_sess_perror("flowd", ss);
+      snmp_sess_perror("dds", ss);
       running = 0;
       exitval = 2;
     }
