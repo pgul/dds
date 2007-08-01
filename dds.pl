@@ -24,7 +24,7 @@ sub alarm_cont
 
 sub check
 # called for every counter
-# $id and $inhibited variables is not defined
+# $id and $inhibited variables are not defined
 {
 }
 
