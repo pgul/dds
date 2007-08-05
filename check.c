@@ -36,6 +36,7 @@ extern long snap_start;
 extern FILE *fsnap;
 struct recheck_t *recheck_arr;
 int recheck_cur, recheck_size;
+static unsigned long leafs, nodes, emptyleafs, emptynodes, semileafs;
 
 static void putsnap(int flow, int in, u_char *src_mac, u_char *dst_mac, 
                     u_long src_ip, u_long dst_ip, int len, int vlan, int pkts)
@@ -373,6 +374,10 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
     if (level == 0 && (pflow || netflow[0])) check_sockets();
     ip[level] = (unsigned char)i;
     if (level==len-1) {
+      if (octet[i].u1.count == 0)
+        emptyleafs++;
+      else
+        leafs++;
 #ifdef DO_PERL
       perl_check(ip, cps(octet[i].u1.count), pc);
 #endif
@@ -403,6 +408,7 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
       octet[i].u1.count = 0;
     } else if (octet[i].u2.octet) {
 have_detailed:
+      nodes++;
       check_octet(pc, octet[i].u2.octet, level+1, ip, curtime);
       if (curtime-octet[i].u1.used_time >= expire_interval) {
         if (verb >= 3)
@@ -432,12 +438,15 @@ have_detailed:
           reprocess(pc, *(u_long *)ip);
           goto have_detailed;
         }
+        nodes++;
       } else if (octet[i].u1.count) {
         debug(2, "%s for %s is %lu - ok (no detailed stats)",
               cp2str(pc->checkpoint), printip(ip, 32, BYSRC, pc->in),
               cps(octet[i].u1.count));
         octet[i].u1.count = 0;
-      }
+        semileafs++;
+      } else
+        emptynodes++;
     }
   }
 }
@@ -449,6 +458,7 @@ void check(void)
 
   curtime = time(NULL);
   if (curtime == last_check) return;
+  leafs = nodes = emptyleafs = emptynodes = semileafs = 0;
   for (pc=checkhead; pc; pc=pc->next) {
     if (pc->by == BYNONE) {
 #ifdef DO_PERL
@@ -483,6 +493,8 @@ void check(void)
     }
     check_sockets();
   }
+  debug(1, "Leafs: %u, nodes: %u, empty leafs: %u, empty nodes: %u, not detailed leafs: %u", leafs, nodes, emptyleafs, emptynodes, semileafs);
+  debug(1, "Memory usage: %uM", ((leafs+emptyleafs+semileafs)*sizeof(struct octet)+(nodes+emptynodes)*sizeof(struct octet))/(1024*1024ul));
   run_alarms();
   last_check = curtime;
   if (recheck_arr)
