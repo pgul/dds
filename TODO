@@ -5,5 +5,4 @@
 - опция snap в правиле check
 - check flow seq and report about lost packets
 - check for packets between uplink interfaces
-- при недоступности snmp при перечитывании конфига использовать старые ifindex
 ? bug - иногда перестаёт ловить, хотя на tcp исправно отвчает, что всё тихо.

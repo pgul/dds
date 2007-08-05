@@ -36,7 +36,7 @@ char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 char netflow[256], *pflow;
 uid_t uid;
 struct router_t *routers;
-static struct router_t *cur_router;
+static struct router_t *cur_router, *old_routers;
 static struct checktype *checktail;
 #ifdef DO_PERL
 static char perlfile[256];
@@ -520,12 +520,7 @@ int config(char *name)
     allmacs = 0;
   }
 #endif
-  for (cur_router=routers; cur_router;)
-  { freerouter(cur_router);
-    routers = cur_router;
-    cur_router = cur_router->next;
-    free(routers);
-  }
+  old_routers = routers;
   cur_router = routers = calloc(1, sizeof(struct router_t));
   cur_router->addr = (u_long)-1;
   if (!pflow) old_netflow = strdup(netflow);
@@ -563,6 +558,12 @@ int config(char *name)
   parse_file(f, name);
 
   fclose(f);
+  for (cur_router=old_routers; cur_router;)
+  { freerouter(cur_router);
+    routers = cur_router;
+    cur_router = cur_router->next;
+    free(routers);
+  }
   if (strcmp(logname, "syslog") == 0)
     openlog("dds", LOG_PID, LOG_DAEMON);
   if (!pflow)
@@ -875,6 +876,7 @@ static unsigned short get_ifindex(struct router_t *router, enum ifoid_t oid, cha
 {
   int left, right, mid, i;
   char val[256], *p;
+  struct router_t *crouter;
 
   if (router->addr==(u_long)-1)
   { warning("Router not specified for %s", oid2str(oid));
@@ -887,7 +889,21 @@ static unsigned short get_ifindex(struct router_t *router, enum ifoid_t oid, cha
   *s = p+1;
   if (router->data[oid] == NULL)
     /* do snmpwalk for the oid */
-    snmpwalk(router, oid);
+    if (snmpwalk(router, oid) && old_routers)
+    { /* use old values if exists */
+      for (crouter = old_routers; crouter; crouter = crouter->next)
+        if (crouter->addr == router->addr &&
+            strcmp(crouter->community, router->community) == 0)
+          break;
+      if (crouter && crouter->data[oid]) {
+        router->data[oid] = crouter->data[oid];
+        router->nifaces[oid] = crouter->nifaces[oid];
+	if (!router->ifnumber) router->ifnumber = crouter->ifnumber;
+        crouter->nifaces[oid] = 0;
+        free(crouter->data[oid]);
+        crouter->data[oid] = NULL;
+      }
+    }
   /* copy value to val string */
   if (**s == '\"')
   { strncpy(val, *s+1, sizeof(val));

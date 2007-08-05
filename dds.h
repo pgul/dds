@@ -119,6 +119,7 @@ extern char *confname;
 #ifdef WITH_PCAP
 extern int servpid, my_pid, allmacs;
 extern int servpipe[2];
+extern char *piface;
 #endif
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
@@ -145,6 +146,9 @@ int  bindserv(void);
 void serv(void);
 void print_alarms(int fd);
 void switchsignals(int how);
+#ifdef WITH_PCAP
+int get_mac(const char *iface, unsigned char *mac);
+#endif
 
 #ifdef DO_PERL
 int  perl_init(char *perlfile);

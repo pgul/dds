@@ -387,7 +387,7 @@ void serv(void)
     } else if (pid==-1)
       error("cannot fork: %s", strerror(errno));
     else
-      debug("serv: process %u started", pid);
+      debug(1, "serv: process %u started", pid);
     close(new_sock);
   }
 }

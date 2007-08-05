@@ -123,8 +123,6 @@ struct sll_header {
 };
 #endif
 
-static int get_mac(const char *iface, unsigned char *mac);
-
 static pcap_t *pk;
 static int linktype;
 #ifdef HAVE_PCAP_OPEN_LIVE_NEW
@@ -134,7 +132,7 @@ static char *dlt[] = {
  "null", "ethernet", "eth3m", "ax25", "pronet", "chaos",
  "ieee802", "arcnet", "slip", "ppp", "fddi", "llc/snap atm", "raw ip",
  "bsd/os slip", "bsd/os ppp", "lane 802.3", "atm" };
-static char *piface=NULL;
+char *piface=NULL;
 #endif
 long snap_start;
 FILE *fsnap;
@@ -362,7 +360,7 @@ int usage(void)
 #include <net/if_dl.h>
 #include <ifaddrs.h>
 #include <net/if_types.h>
-static int get_mac(const char *iface, unsigned char *mac)
+int get_mac(const char *iface, unsigned char *mac)
 {
   struct ifaddrs *ifap, *ifa;
   struct sockaddr_dl *sa;
@@ -384,7 +382,7 @@ static int get_mac(const char *iface, unsigned char *mac)
   return rc;
 }
 #elif defined(SIOCGIFHWADDR)
-static int get_mac(const char *iface, unsigned char *mac)
+int get_mac(const char *iface, unsigned char *mac)
 {
   struct ifreq ifr;
   int rc=-1, fd = socket(PF_INET, SOCK_DGRAM, 0);
@@ -402,7 +400,7 @@ static int get_mac(const char *iface, unsigned char *mac)
   return rc;
 }
 #else
-static int get_mac(const char *iface, unsigned char *mac)
+int get_mac(const char *iface, unsigned char *mac)
 {
   char cmd[80], str[256], *p;
   FILE *fout;
@@ -540,7 +538,7 @@ int main(int argc, char *argv[])
     } else if (servpid == -1)
       error("Cannot fork: %s", strerror(errno));
     else
-      debug("process %u started", servpid);
+      debug(1, "process %u started", servpid);
     close(servpipe[0]);
     print_alarms(servpipe[1]);
     write(servpipe[1], "", 1);
