@@ -664,7 +664,7 @@ void reconfig(void)
 #include <ucd-snmp/default_store.h>
 #endif
 
-static char *oid2str(enum ifoid_t oid)
+char *oid2str(enum ifoid_t oid)
 {
   switch (oid)
   { case IFNAME:  return "ifName";

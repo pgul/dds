@@ -207,6 +207,61 @@ int check_sockets(void)
   return n;
 }
 
+#ifdef DO_SNMP
+static char *getoidval(struct router_t *pr, enum ifoid_t oid, int ifindex)
+{
+  int i;
+
+  if (!pr || !pr->data[oid]) return NULL;
+  /* TODO: optimize (make index?) */
+  for (i=0; i<pr->nifaces[oid]; i++)
+    if (pr->data[oid][i].ifindex == ifindex)
+      return pr->data[oid][i].val;
+  return NULL;
+}
+#endif
+
+static void add_flow(struct router_t *pr, int input, int output,
+	      	     struct ip *iphdr, unsigned long bytes, int pkts)
+{
+  int n, in = 0;
+  char ip_src[20], ip_dst[20];
+  char sinput[80], soutput[80];
+
+  for (n = 0; n < pr->nuplinks; n++) {
+    if (input == pr->uplinks[n]) in |= 1;
+    else if (output == pr->uplinks[n]) in |= 2;
+  }
+  if ((in & 2) == 0 && output != 0) /* to downlink */
+    add_pkt(NULL, NULL, iphdr, bytes, 1, 0, pkts, 1, NULL, 0);
+  if ((in & 1) == 0) /* from downlink */
+    add_pkt(NULL, NULL, iphdr, bytes, 0, 0, pkts, 1, NULL, 0);
+  if (in != 3) return;
+  /* from uplink to uplink */
+  strncpy(ip_src, inet_ntoa(iphdr->ip_src), sizeof(ip_src));
+  strncpy(ip_dst, inet_ntoa(iphdr->ip_dst), sizeof(ip_dst));
+  ip_src[sizeof(ip_src)-1] = ip_dst[sizeof(ip_dst)-1] = '\0';
+  sinput[0] = soutput[0] = '\0';
+#ifdef DO_SNMP
+  {
+    int oid = -1;
+    char *p;
+
+    if (pr->data[IFNAME]) oid=IFNAME;
+    else if (pr->data[IFDESCR]) oid=IFDESCR;
+    else if (pr->data[IFALIAS]) oid=IFALIAS;
+    if (oid >= 0) {
+      if (input > 0 && (p = getoidval(pr, oid, input)) != NULL)
+        snprintf(sinput, sizeof(sinput)-1, " (%s %s)", oid2str(oid), p);
+      if (output > 0 && (p = getoidval(pr, oid, output)) != NULL)
+        snprintf(soutput, sizeof(soutput)-1, " (%s %s)", oid2str(oid), p);
+      sinput[sizeof(sinput)-1] = soutput[sizeof(soutput)-1] = '\0';
+    }
+  }
+#endif
+  warning("Packet from upstream to upstream: router %s, input %u%s output %u%s pkt %s->%s", inet_ntoa(*(struct in_addr *)&pr->addr), input, sinput, output, soutput, ip_src, ip_dst);
+}
+
 void recv_flow(void)
 {
   int ver, i, count, n;
@@ -267,15 +322,7 @@ void recv_flow(void)
         output=ntohs(data1[i].output);
         make_iphdr(iphdr, data1[i].srcaddr, data1[i].dstaddr, data1[i].prot,
                    data1[i].dstport, data1[i].flags);
-        for (n = 0; n < pr->nuplinks; n++) {
-          if (input == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data1[i].pkts), 1, NULL, 0);
-          else if (output == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data1[i].pkts), 1, NULL, 0);
-          else
-            continue;
-          break;
-        }
+	add_flow(pr, input, output, iphdr, bytes, ntohl(data1[i].pkts));
       }
     }
     else if (ver == 5)
@@ -303,15 +350,7 @@ void recv_flow(void)
         output=ntohs(data5[i].output);
         make_iphdr(iphdr, data5[i].srcaddr, data5[i].dstaddr, data5[i].prot,
                    data5[i].dstport, data5[i].flags);
-        for (n = 0; n < pr->nuplinks; n++) {
-          if (input == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 1, 0, ntohl(data5[i].pkts), 1, NULL, 0);
-          else if (output == pr->uplinks[n])
-            add_pkt(NULL, NULL, iphdr, bytes, 0, 0, ntohl(data5[i].pkts), 1, NULL, 0);
-          else
-            continue;
-          break;
-        }
+	add_flow(pr, input, output, iphdr, bytes, ntohl(data5[i].pkts));
       }
     }
     else

@@ -149,6 +149,9 @@ void switchsignals(int how);
 #ifdef WITH_PCAP
 int get_mac(const char *iface, unsigned char *mac);
 #endif
+#ifdef DO_SNMP
+char *oid2str(enum ifoid_t oid);
+#endif
 
 #ifdef DO_PERL
 int  perl_init(char *perlfile);
