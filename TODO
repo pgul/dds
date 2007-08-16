@@ -4,4 +4,3 @@
 - более подробный snap
 - опция snap в правиле check
 - check flow seq and report about lost packets
-? bug - иногда перестаёт ловить, хотя на tcp исправно отвчает, что всё тихо.
