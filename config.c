@@ -560,9 +560,9 @@ int config(char *name)
   fclose(f);
   for (cur_router=old_routers; cur_router;)
   { freerouter(cur_router);
-    routers = cur_router;
+    old_routers = cur_router;
     cur_router = cur_router->next;
-    free(routers);
+    free(old_routers);
   }
   if (strcmp(logname, "syslog") == 0)
     openlog("dds", LOG_PID, LOG_DAEMON);
