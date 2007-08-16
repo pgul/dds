@@ -615,7 +615,7 @@ void reconfig(void)
     exit(1);
   }
 #ifdef WITH_PCAP
-  if (my_mac[0] == NULL && (!pflow || netflow[0]) && !allmacs)
+  if (my_mac[0] == NULL && pflow==NULL && netflow[0]=='\0' && !allmacs)
   {
     my_mac[0] = malloc(ETHER_ADDR_LEN);
     get_mac(piface, my_mac[0]);
