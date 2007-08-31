@@ -142,6 +142,10 @@ static char *saved_argv[20];
 char *confname;
 int need_reconfig;
 
+#ifndef HAVE_STRSIGNAL_DECL
+char *strsignal(int signo);
+#endif
+
 void hup(int signo)
 {
 #ifdef HAVE_STRSIGNAL
@@ -192,6 +196,7 @@ void hup(int signo)
       if (fsnap==NULL)
         warning("Cannot open %s: %s", snapfile, strerror(errno));
     }
+    curtime = time(NULL);
     if (fsnap)
       fprintf(fsnap, "\n\n----- %s\n", ctime(&curtime));
     snap_start = curtime;
@@ -303,7 +308,7 @@ void dopkt(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
     src_mac = dst_mac = NULL;
   add_pkt(src_mac, dst_mac, ip_hdr,
          hdr->len-(eth_hdr ? ((char *)ip_hdr - (char *)eth_hdr) : 0),
-         in, vlan, 1, 0, NULL, 0);
+         in, vlan, 1, 0, NULL, 0, 0);
 dopkt_end:
   switchsignals(SIG_UNBLOCK);
 }

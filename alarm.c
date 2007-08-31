@@ -95,6 +95,18 @@ char *cp2str(cp_type cp)
 	return "";
 }
 
+char *by2str(by_type by)
+{
+	switch (by) {
+		case BYNONE:    return "bynone";
+		case BYSRC:     return "bysrc";
+		case BYDST:     return "bydst";
+		case BYSRCDST:  return "bysrcdst";
+		case BYDSTPORT: return "bydstport";
+	}
+	return "";
+}
+
 void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc)
 {
 	struct alarm_t *pa;

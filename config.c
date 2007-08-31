@@ -348,6 +348,7 @@ incorr:
   while (*p && !isspace(*p)) p++;
   while (*p && isspace(*p)) p++;
   read_ip(p, &pc->ip, &pc->mask, &pc->preflen);
+  sprintf(pc->ipmask, "%s/%u", printoctets((unsigned char *)&pc->ip, 4), pc->preflen);
   while (*p && !isspace(*p)) p++;
   while (*p && isspace(*p)) p++;
   pc->limit = strtoul(p, NULL, 10);
@@ -710,7 +711,7 @@ static int snmpwalk(struct router_t *router, enum ifoid_t noid)
   snmp_sess_init(&session);
   init_snmp("dds");
   /* open an SNMP session */
-  strcpy(ipbuf, inet_ntoa(*(struct in_addr *)&router->addr));
+  strcpy(ipbuf, printoctets((unsigned char *)&router->addr, 4));
   session.peername = ipbuf;
   session.community = (unsigned char *)router->community;
   session.community_len = strlen(router->community);
@@ -925,7 +926,7 @@ static unsigned short get_ifindex(struct router_t *router, enum ifoid_t oid, cha
     if ((i=strcasecmp(router->data[oid][mid].val, val))==0)
     {
       debug(4, "ifindex for %s=%s at %s is %d", oid2str(oid), val, 
-        inet_ntoa(*(struct in_addr *)&router->addr),
+        printoctets((unsigned char *)&router->addr, 4),
         router->data[oid][mid].ifindex);
       return router->data[oid][mid].ifindex;
     }
@@ -933,7 +934,7 @@ static unsigned short get_ifindex(struct router_t *router, enum ifoid_t oid, cha
     else left=mid+1;
   }
   warning("%s %s not found at %s", oid2str(oid), val,
-         inet_ntoa(*(struct in_addr *)&(router->addr)));
+          printoctets((unsigned char *)&(router->addr), 4));
   return (unsigned short)-2;
 }
 #endif

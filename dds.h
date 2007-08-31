@@ -11,7 +11,7 @@
 #define MAXMYMACS	128
 #define MAXUPLINKS	128
 #define MAXVRF		128
-#define QSIZE		4096	/* ~6M queue */
+#define QSIZE		8192	/* ~12M queue */
 
 #define ALARM_NEW       1
 #define ALARM_FOUND     2
@@ -25,16 +25,15 @@
 #define max(a, b)	((a) > (b) ? (a) : (b))
 #endif
 
-#ifdef WITH_LONGLONG_COUNTERS
 typedef unsigned long long count_t;
-#else
-typedef unsigned long count_t;
-#endif
 
 struct octet {
 	union {
-		count_t count;            /* for leaf */
-		time_t used_time;         /* for non-leaf */
+		count_t count;			/* 64-bit */
+		struct {
+			time_t used_time;	/* 32-bit */
+			unsigned int precount;	/* 32-bit */
+		} s1;
 	} u1;
 	union {
 		int alarmed;              /* for leaf */
@@ -76,6 +75,7 @@ struct checktype {
 	struct octet *octet;
 	struct checktype *next;
 	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
+	char ipmask[32];
 };
 
 struct recheck_t {
@@ -124,7 +124,7 @@ extern char *piface;
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
              int in, int vlan, int pkts, int flow,
-             struct checktype *recheck, u_long local_ip);
+             struct checktype *recheck, unsigned char *local_ip, int re_len);
 void check(void);
 int  config(char *name);
 void reconfig(void);
@@ -132,6 +132,7 @@ int  check_sockets(void);
 void exec_alarm(unsigned char *ip, u_long count, struct checktype *p);
 void run_alarms(void);
 char *cp2str(cp_type cp);
+char *by2str(by_type by);
 char *printip(unsigned char *ip, int preflen, by_type by, int in);
 int  length(by_type by);
 void logwrite(char *format, ...);
@@ -145,6 +146,7 @@ void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
 int  bindserv(void);
 void serv(void);
 void print_alarms(int fd);
+char *printoctets(unsigned char *octets, int length);
 void switchsignals(int how);
 #ifdef WITH_PCAP
 int get_mac(const char *iface, unsigned char *mac);

@@ -28,6 +28,16 @@ esac
 
 AC_CHECK_FUNCS(daemon getifaddrs localtime_r strsignal)
 
+dnl Check for strsignal declaration
+case x$ac_cv_func_strsignal in
+  xyes)
+    AC_MSG_CHECKING(for strsignal declaration)
+    AC_TRY_COMPILE([#include <signal.h>
+                    #include <string.h>
+                    int strsignal(int signo);],[], AC_MSG_RESULT(no), AC_DEFINE(HAVE_STRSIGNAL_DECL) AC_MSG_RESULT(yes))
+    ;;
+esac
+
 dnl Check for pcap
 withval=""
 AC_ARG_WITH(pcap,
@@ -367,9 +377,9 @@ case x$withval in
     ;;
 esac
 
-AC_ARG_WITH(huge-counters,
-    [  --with-huge-counters    use 64-bit counters even for single IP-address],
-    [AC_DEFINE(WITH_LONGLONG_COUNTERS)],[])
+#AC_ARG_WITH(huge-counters,
+#    [  --with-huge-counters    use 64-bit counters even for single IP-address],
+#    [AC_DEFINE(WITH_LONGLONG_COUNTERS)],[])
 
 dnl Set dirs
 logdir=/var/log/dds
