@@ -108,7 +108,7 @@ extern char iface[];
 extern char logname[], snapfile[], pidfile[];
 extern char alarmcmd[], noalarmcmd[], contalarmcmd[], netflow[], *pflow;
 extern int  check_interval, expire_interval, reverse, verb, redo, inhibit;
-extern int  alarm_flaps;
+extern int  sampled, alarm_flaps;
 extern uid_t uid;
 extern u_char *my_mac[];
 extern struct router_t *routers;

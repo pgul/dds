@@ -233,9 +233,9 @@ static void add_flow(struct router_t *pr, int input, int output,
     else if (output == pr->uplinks[n]) in |= 2;
   }
   if ((in & 2) == 0 && output != 0) /* to downlink */
-    add_pkt(NULL, NULL, iphdr, bytes, 1, 0, pkts, 1, NULL, 0, 0);
+    add_pkt(NULL, NULL, iphdr, bytes*sampled, 1, 0, pkts*sampled, 1, NULL, 0, 0);
   if ((in & 1) == 0) /* from downlink */
-    add_pkt(NULL, NULL, iphdr, bytes, 0, 0, pkts, 1, NULL, 0, 0);
+    add_pkt(NULL, NULL, iphdr, bytes*sampled, 0, 0, pkts*sampled, 1, NULL, 0, 0);
   if (in != 3) return;
   /* from uplink to uplink */
   strncpy(ip_src, inet_ntoa(iphdr->ip_src), sizeof(ip_src));
