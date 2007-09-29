@@ -236,8 +236,8 @@ static int parse_line(char *str, char *fname, int nline)
   { servport = atoi(p+10);
     return 0;
   }
-  if (strncmp(p, "sampled=", 9)==0)
-  { sampled = atoi(p+9);
+  if (strncmp(p, "sampled=", 8)==0)
+  { sampled = atoi(p+8);
     if (sampled == 0) sampled=1;
     return 0;
   }
