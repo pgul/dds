@@ -236,8 +236,8 @@ static void add_flow(struct router_t *pr, int input, int output,
     add_pkt(NULL, NULL, iphdr, bytes*sampled, 1, 0, pkts*sampled, 1, NULL, 0, 0);
   if ((in & 1) == 0) /* from downlink */
     add_pkt(NULL, NULL, iphdr, bytes*sampled, 0, 0, pkts*sampled, 1, NULL, 0, 0);
-  if (in != 3) return;
-  /* from uplink to uplink */
+  if (in != 3 && (input != output || input == 0)) return;
+  /* from uplink to uplink or ping-pong */
   strncpy(ip_src, inet_ntoa(iphdr->ip_src), sizeof(ip_src));
   strncpy(ip_dst, inet_ntoa(iphdr->ip_dst), sizeof(ip_dst));
   ip_src[sizeof(ip_src)-1] = ip_dst[sizeof(ip_dst)-1] = '\0';
@@ -259,7 +259,9 @@ static void add_flow(struct router_t *pr, int input, int output,
     }
   }
 #endif
-  warning("Packet from upstream to upstream: router %s, input %u%s output %u%s pkt %s->%s", printoctets((unsigned char *)&pr->addr, 4), input, sinput, output, soutput, ip_src, ip_dst);
+  warning("%s: router %s, input %u%s output %u%s pkt %s->%s",
+           (input == output) ? "Ping-pong" : "Packet from upstream to upstream",
+           printoctets((unsigned char *)&pr->addr, 4), input, sinput, output, soutput, ip_src, ip_dst);
 }
 
 void recv_flow(void)
