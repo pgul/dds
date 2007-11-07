@@ -509,8 +509,14 @@ int main(int argc, char *argv[])
     if (uid) {
       if (setuid(uid))
         warning("setuid failed: %s", strerror(errno));
-      else
+      else {
         debug(1, "Setuid to uid %d done", uid);
+#ifdef HAVE_INITGROUPS
+        if (uids) initgroups(uids, gid);
+#else
+        setgid(gid);
+#endif
+      }
     }
     last_check = time(NULL);
     switchsignals(SIG_UNBLOCK);

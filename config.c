@@ -34,7 +34,9 @@ char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval, expire_interval, redo, inhibit, alarm_flaps, sampled;
 char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 char netflow[256], *pflow;
+char *uids;
 uid_t uid;
+gid_t gid;
 struct router_t *routers;
 static struct router_t *cur_router, *old_routers;
 static struct checktype *checktail;
@@ -244,7 +246,11 @@ static int parse_line(char *str, char *fname, int nline)
   if (strncmp(p, "user=", 5)==0)
   { struct passwd *pw = getpwnam(p+5);
     if (pw)
-      uid = pw->pw_uid;
+    { uid = pw->pw_uid;
+      gid = pw->pw_gid;
+      if (uids) free(uids);
+      uids = strdup(p+5);
+    }
     else
       fprintf(stderr, "Warning: user %s unknown\n", p+5);
     return 0;
@@ -413,6 +419,9 @@ static int parse_file(FILE *f, char *fname)
 
   alarmcmd[0] = noalarmcmd[0] = contalarmcmd[0] = '\0';
   nline = 0;
+  p = uids;
+  uids = NULL;
+  if (p) free(p);
   while (fgets(str, sizeof(str), f))
   {
     nline++;
