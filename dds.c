@@ -506,17 +506,25 @@ int main(int argc, char *argv[])
   }
   if (pflow || netflow[0])
   {
-    if (uid) {
+    if (uid)
+    {
+#ifdef HAVE_INITGROUPS
+      if (uids)
+      { if (initgroups(uids, gid))
+          warning("initgroups failed: %s", strerror(errno));
+        else
+          debug(1, "initgroups for user %s (base gid %d) done", uids, gid);
+      }
+#else
+      if (setgid(gid))
+        warning("setgid failed: %s", strerror(errno));
+      else {
+        debug(1, "Setgid to gid %d done", gid);
+#endif
       if (setuid(uid))
         warning("setuid failed: %s", strerror(errno));
-      else {
-        debug(1, "Setuid to uid %d done", uid);
-#ifdef HAVE_INITGROUPS
-        if (uids) initgroups(uids, gid);
-#else
-        setgid(gid);
-#endif
-      }
+      else
+        debug(1, "Setuid to uid %d (user %s) done", uid, uids ? uids : "?");
     }
     last_check = time(NULL);
     switchsignals(SIG_UNBLOCK);
