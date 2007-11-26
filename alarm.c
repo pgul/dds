@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <signal.h>
-#include <syslog.h>
 #include <sys/socket.h>
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
@@ -17,42 +16,6 @@
 
 static struct alarm_t *alarm_head;
 static unsigned seq;
-
-void logwrite(char *format, ...)
-{
-	FILE *f;
-	va_list ap;
-	time_t curtime;
-	struct tm *tm;
-#ifdef HAVE_LOCALTIME_R
-	struct tm tm1;
-#endif
-	char *month[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-	
-	if (strcmp(logname, "syslog") == 0) {
-		va_start(ap, format);
-		vsyslog(LOG_NOTICE, format, ap);
-		va_end(ap);
-		return;
-	}
-	curtime = time(NULL);
-#ifdef HAVE_LOCALTIME_R
-	tm = localtime_r(&curtime, &tm1);
-#else
-	tm = localtime(&curtime);
-#endif
-	if ((f=fopen(logname, "a")) != NULL) {
-		fprintf(f, "%s %2u %02u:%02u:%02u ",
-		        month[tm->tm_mon], tm->tm_mday,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-		va_start(ap, format);
-		vfprintf(f, format, ap);
-		va_end(ap);
-		fprintf(f, "\n");
-		fclose(f);
-	}
-}
 
 /* replace all occurences of substring s1 in str to s2 */
 static void chstring(char **str, char *s1, char *s2)

@@ -481,7 +481,7 @@ int main(int argc, char *argv[])
     confname=argv[optind];
 
   if (config(confname))
-  { fprintf(stderr, "Config error\n");
+  { error("Config error");
     return 1;
   }
   if (pflow)
@@ -650,20 +650,65 @@ int main(int argc, char *argv[])
 #endif
 }
 
+static void vlogwrite(int priority, int display, char *format, va_list ap)
+{
+  FILE *f;
+  time_t curtime;
+  struct tm *tm;
+#ifdef HAVE_LOCALTIME_R
+  struct tm tm1;
+#endif
+  char *month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+  if (display) {
+    f = (priority == LOG_WARNING || priority == LOG_ERR) ? stderr : stdout;
+    if (priority == LOG_WARNING) fprintf(f, "Warning: ");
+    vfprintf(f, format, ap);
+    fprintf(f, "\n");
+    fflush(f);
+  }
+
+  if (strcmp(logname, "syslog") == 0) {
+    vsyslog(priority, format, ap);
+    return;
+  }
+
+  /* do not output debug info to dds.log */
+  if (priority == LOG_DEBUG) return;
+
+  curtime = time(NULL);
+#ifdef HAVE_LOCALTIME_R
+  tm = localtime_r(&curtime, &tm1);
+#else
+  tm = localtime(&curtime);
+#endif
+  if ((f=fopen(logname, "a")) != NULL) {
+    fprintf(f, "%s %2u %02u:%02u:%02u ",
+            month[tm->tm_mon], tm->tm_mday,
+            tm->tm_hour, tm->tm_min, tm->tm_sec);
+    vfprintf(f, format, ap);
+    fprintf(f, "\n");
+    fclose(f);
+  }
+}
+
+void logwrite(char *format, ...)
+{
+  va_list ap;
+
+  va_start(ap, format);
+  vlogwrite(LOG_NOTICE, 0, format, ap);
+  va_end(ap);
+}
+
 void debug(int level, char *format, ...)
 {
   va_list ap;
 
   if (level > verb) return;
-  if (strcmp(logname, "syslog") == 0) {
-    va_start(ap, format);
-    vsyslog(LOG_DEBUG, format, ap);
-    va_end(ap);
-  }
   va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  fprintf(stderr, "\n");
-  fflush(stderr);
+  vlogwrite(LOG_DEBUG, 1, format, ap);
   va_end(ap);
 }
 
@@ -671,15 +716,8 @@ void warning(char *format, ...)
 {
   va_list ap;
 
-  if (strcmp(logname, "syslog") == 0) {
-    va_start(ap, format);
-    vsyslog(LOG_WARNING, format, ap);
-    va_end(ap);
-  }
   va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  fprintf(stderr, "\n");
-  fflush(stderr);
+  vlogwrite(LOG_WARNING, 1, format, ap);
   va_end(ap);
 }
 
@@ -687,15 +725,8 @@ void error(char *format, ...)
 {
   va_list ap;
 
-  if (strcmp(logname, "syslog") == 0) {
-    va_start(ap, format);
-    vsyslog(LOG_ERR, format, ap);
-    va_end(ap);
-  }
   va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  fprintf(stderr, "\n");
-  fflush(stderr);
+  vlogwrite(LOG_ERR, 1, format, ap);
   va_end(ap);
 }
 

@@ -289,8 +289,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
                   printoctets(octets, i+1));
           *po = calloc(256, sizeof(struct octet));
           if (*po == NULL) {
-            logwrite("Cannot allocate memory: %s", strerror(errno));
-            fprintf(stderr, "Cannot allocate memory\n");
+            error("Cannot allocate memory: %s", strerror(errno));
             exit(4);
           }
         }

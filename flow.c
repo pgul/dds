@@ -62,6 +62,7 @@ int bindport(char *netflow)
 {
   char *p;
   struct sockaddr_in myaddr;
+  int opt;
 
   p = strchr(netflow, ':');
   if (p) {
@@ -75,13 +76,13 @@ int bindport(char *netflow)
   flowport = atoi(p);
   if (flowport == 0 || flowip == 0)
   {
-    fprintf(stderr, "Incorrect netflow port: %s!\n", netflow);
+    error("Incorrect netflow port: %s!", netflow);
     return -1;
   }
 #if 0
   if (flowport < 1024 && geteuid() != 0 && sockfd != -1)
   { /* do not close socket if we're already drop privileges */
-    fprintf(stderr, "Can't bind: permission denied\n");
+    error("Can't bind: permission denied");
     return -1;
   }
 #endif
@@ -91,16 +92,19 @@ int bindport(char *netflow)
     sockfd = -1;
   }
   if ((sockfd=socket(PF_INET, SOCK_DGRAM, 0)) == -1)
-  { printf("socket: %s\n", strerror(errno));
+  { error("socket: %s", strerror(errno));
     return -1;
   }
+  if (setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof opt))
+    warning("Warning: cannot setsockopt SO_REUSEADDR: %s", strerror(errno));
+
   memset(&myaddr, 0, sizeof(myaddr));
   myaddr.sin_family = AF_INET;
   myaddr.sin_addr.s_addr = flowip;
   myaddr.sin_port = htons(flowport);
   if (bind(sockfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) != 0)
   {
-    printf("bind: %s (addr %s)\n", strerror(errno), inet_ntoa(myaddr.sin_addr));
+    error("bind: %s (addr %s)", strerror(errno), inet_ntoa(myaddr.sin_addr));
     close(sockfd);
     sockfd = -1;
     return -1;

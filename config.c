@@ -30,7 +30,7 @@
 
 struct checktype *checkhead=NULL;
 char iface[32]=IFACE;
-char logname[256]=LOGNAME, snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
+char logname[256], snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
 int  check_interval, expire_interval, redo, inhibit, alarm_flaps, sampled;
 char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 char netflow[256], *pflow;
@@ -88,13 +88,13 @@ static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
   *p1=c; p=p1;
   if ((*ip & *mask) != *ip)
   { unsigned long masked = (*ip & *mask);
-    printf("Warning: %u.%u.%u.%u inconsistent with /%d (mask %u.%u.%u.%u)!\n",
+    warning("%u.%u.%u.%u inconsistent with /%d (mask %u.%u.%u.%u)!",
            ((char *)ip)[0], ((char *)ip)[1],
            ((char *)ip)[2], ((char *)ip)[3],
            atoi(p+1),
            ((char *)mask)[0], ((char *)mask)[1],
            ((char *)mask)[2], ((char *)mask)[3]);
-    printf("ip & mask is %u.%u.%u.%u\n",
+    warning("ip & mask is %u.%u.%u.%u",
            ((char *)&masked)[0], ((char *)&masked)[1],
            ((char *)&masked)[2], ((char *)&masked)[3]);
   }
@@ -134,7 +134,7 @@ static int parse_line(char *str, char *fname, int nline)
       for (i=0; i<MAXMYMACS; i++)
         if (my_mac[i] == NULL) break;
       if (i == MAXMYMACS)
-        printf("Too many mymacs (%d max), extra ignored\n", MAXMYMACS);
+        warning("Too many mymacs (%d max), extra ignored", MAXMYMACS);
       else
       {
         my_mac[i] = malloc(ETHER_ADDR_LEN);
@@ -174,7 +174,7 @@ static int parse_line(char *str, char *fname, int nline)
     { if (strcmp(p, "any")==0)
         cur_router->addr=(u_long)-1;
       else
-        warning("Warning: Router %s not found (%s:%d)", p, fname, nline);
+        warning("Router %s not found (%s:%d)", p, fname, nline);
       return 0;
     }
     /* use only first address */
@@ -183,7 +183,7 @@ static int parse_line(char *str, char *fname, int nline)
   }
   if (strncmp(p, "uplink-ifindex=", 15)==0)
   { if (cur_router->nuplinks == MAXUPLINKS)
-      printf("Too many uplink interfaces (%d max), extra ignored\n", MAXUPLINKS);
+      warning("Too many uplink interfaces (%d max), extra ignored", MAXUPLINKS);
     else
       cur_router->uplinks[cur_router->nuplinks++] = atoi(p+15);
     return 0;
@@ -200,7 +200,7 @@ static int parse_line(char *str, char *fname, int nline)
       oid = IFIP;
     if (oid != -1)
     { if (cur_router->nuplinks == MAXUPLINKS)
-        printf("Too many uplink interfaces (%d max), extra ignored\n", MAXUPLINKS);
+        warning("Too many uplink interfaces (%d max), extra ignored", MAXUPLINKS);
       else
         cur_router->uplinks[cur_router->nuplinks++] = get_ifindex(cur_router, oid, &p);
       return 0;
@@ -208,7 +208,14 @@ static int parse_line(char *str, char *fname, int nline)
   }
 #endif
   if (strncmp(p, "log=", 4)==0)
-  { strncpy(logname, p+4, sizeof(logname)-1);
+  { /* reopen log immediately, report below config error to the log */
+    if (strcmp(logname, p+4))
+    { if (strcmp(logname, "syslog") == 0)
+        closelog();
+      strncpy(logname, p+4, sizeof(logname)-1);
+      if (strcmp(logname, "syslog") == 0)
+        openlog("dds", LOG_PID, LOG_DAEMON);
+    }
     return 0;
   }
   if (strncmp(p, "snap=", 5)==0)
@@ -252,7 +259,7 @@ static int parse_line(char *str, char *fname, int nline)
       uids = strdup(p+5);
     }
     else
-      fprintf(stderr, "Warning: user %s unknown\n", p+5);
+      warning("User %s unknown", p+5);
     return 0;
   }
   if (strncmp(p, "alarm=", 6)==0)
@@ -296,7 +303,7 @@ static int parse_line(char *str, char *fname, int nline)
     else if (*p == 'n' || *p == 'N')
       redo=0;
     else
-      fprintf(stderr, "Unknown recheck value ignored (%s:%d): %s\n", fname, nline, p);
+      warning("Unknown recheck value ignored (%s:%d): %s", fname, nline, p);
     return 0;
   }
   if (strncmp(p, "inhibit=", 8)==0)
@@ -307,7 +314,7 @@ static int parse_line(char *str, char *fname, int nline)
     else if (*p == 'n' || *p == 'N')
       inhibit=0;
     else
-      fprintf(stderr, "Unknown inhibit value ignored (%s:%d): %s\n", fname, nline, p);
+      warning("Unknown inhibit value ignored (%s:%d): %s", fname, nline, p);
     return 0;
   }
 #ifdef DO_PERL
@@ -324,7 +331,7 @@ static int parse_line(char *str, char *fname, int nline)
   /* it's alarm rule */
   if (strcmp(str, "check") != 0)
   {
-    printf("Unknown keyword %s in config ignored (%s:%d)\n", str, fname, nline);
+    warning("Unknown keyword %s in config ignored (%s:%d)", str, fname, nline);
     return 0;
   }
   /* create structure */
@@ -333,7 +340,7 @@ static int parse_line(char *str, char *fname, int nline)
   if (!*p)
   {
 incorr:
-    printf("Incorrect check line %d in config file %s ignored\n", nline, fname);
+    warning("Incorrect check line %d in config file %s ignored", nline, fname);
     free(pc);
     return 0;
   }
@@ -372,7 +379,7 @@ incorr:
   if (pc->checkpoint == BPS) pc->safelimit /= 8;
   if (pc->safelimit > pc->limit)
   {
-    printf("Warning: safelimit is more then hardlimit\n");
+    warning("safelimit is more then hardlimit");
     pc->safelimit = pc->limit;
   }
   for (;;)
@@ -386,7 +393,7 @@ incorr:
     {
       pc->by = BYDSTPORT;
       if (pc->checkpoint == ICMP) {
-        printf("bydstport selector is senseless for icmp traffic\n");
+        warning("bydstport selector is senseless for icmp traffic");
         pc->by = BYNONE;
       }
     }
@@ -434,7 +441,7 @@ static int parse_file(FILE *f, char *fname)
         p1=strchr(p, '\"');
         if (p1==NULL)
         {
-          printf("Unmatched quotes in include, ignored: %s\n", str);
+          warning("Unmatched quotes in include, ignored: %s", str);
           continue;
         }
         *p1='\0';
@@ -444,7 +451,7 @@ static int parse_file(FILE *f, char *fname)
       }
       if ((finc=fopen(p, "r")) == NULL)
       {
-        printf("Can't open %s: %s, include ignored\n", p, strerror(errno));
+        warning("Can't open %s: %s, include ignored", p, strerror(errno));
         continue;
       }
       parse_file(finc, p);
@@ -478,6 +485,7 @@ int bindserv(void)
 {
   /* bind servsock to servport */
   struct sockaddr_in serv_addr;
+  int opt;
 
   servsock = socket(PF_INET, SOCK_STREAM, 0);
   if (servsock == -1)
@@ -485,13 +493,16 @@ int bindserv(void)
     error("Can't create socket: %s", strerror(errno));
     return -1;
   }
+  opt = 1;
+  if (setsockopt (servsock, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof opt))
+    warning("Can't servsock SO_REUSEADDR: %s", strerror(errno));
   memset(&serv_addr, 0, sizeof serv_addr);
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_addr.s_addr = htonl (INADDR_ANY);
   serv_addr.sin_port = htons(servport);
   if (bind(servsock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0)
   {
-    error("Can't bind socket: %s", strerror(errno));
+    error("Can't bind server socket: %s", strerror(errno));
     close(servsock);
     servsock = -1;
     return -1;
@@ -510,11 +521,9 @@ int config(char *name)
   time_t old_mtime = 0;
 #endif
 
-  if (strcmp(logname, "syslog") == 0)
-    closelog();
   f = fopen(name, "r");
   if (f==NULL)
-  { fprintf(stderr, "Can't open %s: %s!\n", name, strerror(errno));
+  { error("Can't open %s: %s!", name, strerror(errno));
     return -1;
   }
   /* free check list */
@@ -556,6 +565,7 @@ int config(char *name)
   recheck_size = recheck_cur = 0;
   if (servsock != -1)
   {
+    debug(2, "server socket closed");
     close(servsock);
     servsock = -1;
   }
@@ -580,8 +590,8 @@ int config(char *name)
     cur_router = cur_router->next;
     free(old_routers);
   }
-  if (strcmp(logname, "syslog") == 0)
-    openlog("dds", LOG_PID, LOG_DAEMON);
+  if (logname[0] == '\0')
+    strncpy(logname, LOGNAME, sizeof(logname)-1);
   if (!pflow)
   {
     if (strcmp(netflow, old_netflow))
@@ -594,7 +604,8 @@ int config(char *name)
     free(old_netflow);
   }
   if (servport && (pflow || netflow[0]))
-    bindserv();
+    if (bindserv())
+      return -1;
 #ifdef DO_PERL
   if (perlfile)
   {
@@ -625,7 +636,7 @@ void reconfig(void)
 {
   need_reconfig = 0;
   if (config(confname))
-  { fprintf(stderr, "Config error!\n");
+  { error("Config error!");
     perl_done();
     unlink(pidfile);
     exit(1);
@@ -647,7 +658,8 @@ void reconfig(void)
     if (servpid == 0)
     {
       close(servpipe[1]);
-      bindserv();
+      if (bindserv())
+        _exit(1);
       serv();
       _exit(0);
     } else if (servpid == -1)
