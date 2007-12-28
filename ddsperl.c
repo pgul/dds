@@ -205,20 +205,6 @@ void perl_done(void)
   }
 }
 
-static char *by2str(by_type by)
-{
-  switch (by)
-  {
-    case BYNONE:	return "bynone";
-    case BYSRC:		return "bysrc";
-    case BYDST:		return "bydst";
-    case BYDSTPORT:	return "bydstport";
-    case BYSRCDST:	return "bysrcdst";
-    default:		error("Internal error in by2str (by %d)", by);
-			return "byunknown";
-  }
-}
-
 /* hooks */
 int perl_alarm_event(struct alarm_t *pa, int event)
 {

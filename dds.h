@@ -132,7 +132,7 @@ int  config(char *name);
 void reconfig(void);
 int  check_sockets(void);
 void exec_alarm(unsigned char *ip, u_long count, struct checktype *p);
-void run_alarms(void);
+void do_alarms(void);
 char *cp2str(cp_type cp);
 char *by2str(by_type by);
 char *printip(unsigned char *ip, int preflen, by_type by, int in);

@@ -512,7 +512,7 @@ void check(void)
   }
   debug(1, "Leafs: %u, nodes: %u, empty leafs: %u, empty nodes: %u, not detailed leafs: %u", leafs, nodes, emptyleafs, emptynodes, semileafs);
   debug(1, "Memory usage: %uM", ((leafs+emptyleafs+semileafs)*sizeof(struct octet)+(nodes+emptynodes)*sizeof(struct octet))/(1024*1024ul));
-  run_alarms();
+  do_alarms();
   last_check = curtime;
   if (recheck_arr)
     debug(3, "check done, %u entries saved for recheck", recheck_cur);

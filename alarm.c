@@ -160,7 +160,7 @@ static int cmp_cp(cp_type cp1, cp_type cp2)
 	return 1;
 }
 
-void run_alarms(void)
+void do_alarms(void)
 {
 	struct alarm_t *pa, *ppa;
 	int iplen;
