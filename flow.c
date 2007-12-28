@@ -168,7 +168,7 @@ int check_sockets(void)
   }
   if (n == 0)
     return 0;
-  if (FD_ISSET(servsock, &r))
+  if ((servsock != -1) && FD_ISSET(servsock, &r))
   {
     a_len = sizeof(client);
     new_sockfd = accept(servsock, (struct sockaddr *)&client, &a_len);
