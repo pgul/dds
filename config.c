@@ -31,7 +31,7 @@
 struct checktype *checkhead=NULL;
 char iface[32]=IFACE;
 char logname[256], snapfile[256]=SNAPFILE, pidfile[256]=PIDFILE;
-int  check_interval, expire_interval, redo, inhibit, alarm_flaps, sampled;
+int  check_interval, expire_interval, redo, inhibit, alarm_flaps;
 char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 char netflow[256], *pflow;
 char *uids;
@@ -179,6 +179,7 @@ static int parse_line(char *str, char *fname, int nline)
     }
     /* use only first address */
     memcpy(&cur_router->addr, he->h_addr_list[0], he->h_length);
+    cur_router->sampled=1;
     return 0;
   }
   if (strncmp(p, "uplink-ifindex=", 15)==0)
@@ -246,8 +247,8 @@ static int parse_line(char *str, char *fname, int nline)
     return 0;
   }
   if (strncmp(p, "sampled=", 8)==0)
-  { sampled = atoi(p+8);
-    if (sampled == 0) sampled=1;
+  { cur_router->sampled = atoi(p+8);
+    if (cur_router->sampled == 0) cur_router->sampled=1;
     return 0;
   }
   if (strncmp(p, "user=", 5)==0)
@@ -547,6 +548,7 @@ int config(char *name)
   old_routers = routers;
   cur_router = routers = calloc(1, sizeof(struct router_t));
   cur_router->addr = (u_long)-1;
+  cur_router->sampled = 1;
   if (!pflow) old_netflow = strdup(netflow);
   netflow[0] = '\0';
 #ifdef DO_PERL
@@ -556,7 +558,6 @@ int config(char *name)
   redo = 1;
   inhibit = 1;
   alarm_flaps = 1;
-  sampled = 1;
   check_interval=CHECK_INTERVAL;
   expire_interval=EXPIRE_INTERVAL;
   if (recheck_arr)

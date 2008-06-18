@@ -60,6 +60,7 @@ struct router_t {
 		char *val;
 	} *data[NUM_OIDS];
 #endif
+	int sampled;
 	unsigned seq[MAXVRF]; /* for future use */
 	int nuplinks, uplinks[MAXUPLINKS];
 	struct router_t *next;
@@ -108,7 +109,7 @@ extern char iface[];
 extern char logname[], snapfile[], pidfile[];
 extern char alarmcmd[], noalarmcmd[], contalarmcmd[], netflow[], *pflow;
 extern int  check_interval, expire_interval, reverse, verb, redo, inhibit;
-extern int  sampled, alarm_flaps;
+extern int  alarm_flaps;
 extern char *uids;
 extern uid_t uid;
 extern gid_t gid;
