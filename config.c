@@ -52,6 +52,7 @@ int servpid, my_pid, servpipe[2], allmacs;
 
 #ifdef DO_SNMP
 static unsigned short get_ifindex(struct router_t*, enum ifoid_t, char **s);
+static int snmp_time_out;
 #endif
 
 static void freerouter(struct router_t *router)
@@ -190,6 +191,10 @@ static int parse_line(char *str, char *fname, int nline)
     return 0;
   }
 #ifdef DO_SNMP
+  if (strncmp(p, "snmp-timeout=", 13)==0)
+  { snmp_time_out = atoi(p+8);
+    return 0;
+  }
   { int oid = -1;
     if (strncmp(p, "uplink-ifname=", 14)==0)
       oid = IFNAME;
@@ -744,6 +749,9 @@ static int snmpwalk(struct router_t *router, enum ifoid_t noid)
   session.community = (unsigned char *)router->community;
   session.community_len = strlen(router->community);
   session.version = ds_get_int(DS_LIBRARY_ID, DS_LIB_SNMPVERSION);
+  if (snmp_time_out) {
+    session.timeout = snmp_time_out * 1000l;
+  }
   oid=oid2oid(noid);
   debug(1, "Do snmpwalk %s %s %s", ipbuf, router->community, oid);
   if ((ss = snmp_open(&session)) == NULL)
