@@ -142,7 +142,7 @@ static void reprocess(struct checktype *pc, unsigned char *local_ip, int iplen)
              recheck_arr[i].proto, recheck_arr[i].d_port, recheck_arr[i].flags);
     add_pkt(NULL, NULL, iphdr, recheck_arr[i].len,
             recheck_arr[i].in, 0, recheck_arr[i].pkts, 1, pc, local_ip, iplen);
-    if (i % 1000 == 0) check_sockets();
+    if (i % 1000 == 0 && (pflow || netflow[0])) check_sockets();
   }
   debug(3, "Reprocess finished");
 }
@@ -508,7 +508,7 @@ void check(void)
       unsigned char c[8];
       check_octet(pc, pc->octet, 0, c, curtime);
     }
-    check_sockets();
+    if (pflow || netflow[0]) check_sockets();
   }
   debug(1, "Leafs: %u, nodes: %u, empty leafs: %u, empty nodes: %u, not detailed leafs: %u", leafs, nodes, emptyleafs, emptynodes, semileafs);
   debug(1, "Memory usage: %uM", ((leafs+emptyleafs+semileafs)*sizeof(struct octet)+(nodes+emptynodes)*sizeof(struct octet))/(1024*1024ul));
