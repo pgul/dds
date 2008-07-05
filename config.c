@@ -192,7 +192,7 @@ static int parse_line(char *str, char *fname, int nline)
   }
 #ifdef DO_SNMP
   if (strncmp(p, "snmp-timeout=", 13)==0)
-  { snmp_time_out = atoi(p+8);
+  { snmp_time_out = atoi(p+13);
     return 0;
   }
   { int oid = -1;
