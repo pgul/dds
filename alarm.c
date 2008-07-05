@@ -266,7 +266,7 @@ void print_alarms(int fd)
 			 pa->count, cp2str(pa->cp));
 		write(fd, str, strlen(str));
 	}
-	/* 2. Print non-inhibited alarms */
+	/* 2. Print inhibited alarms */
 	for (pa = alarm_head; pa; pa = pa->next) {
 		if (!pa->inhibited) continue;
 		snprintf(str, sizeof(str)-1, "500-DoS %s %s: %lu %s (inhibited)\n",
