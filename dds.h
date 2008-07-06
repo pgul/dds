@@ -10,6 +10,7 @@
 #define CMDLEN		1024
 #define MAXMYMACS	128
 #define MAXUPLINKS	128
+#define MAXMYAS		128
 #define MAXVRF		128
 #define QSIZE		8192	/* ~12M queue */
 
@@ -63,6 +64,7 @@ struct router_t {
 	int sampled;
 	unsigned seq[MAXVRF]; /* for future use */
 	int nuplinks, uplinks[MAXUPLINKS];
+	int nmyas, myas[MAXMYAS];
 	struct router_t *next;
 };
 

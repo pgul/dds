@@ -226,7 +226,7 @@ static char *getoidval(struct router_t *pr, enum ifoid_t oid, int ifindex)
 #endif
 
 static void add_flow(struct router_t *pr, int input, int output,
-	      	     struct ip *iphdr, unsigned long bytes, int pkts)
+                     struct ip *iphdr, unsigned long bytes, int pkts)
 {
   int n, in = 0;
   char ip_src[20], ip_dst[20];
@@ -236,9 +236,14 @@ static void add_flow(struct router_t *pr, int input, int output,
     if (input == pr->uplinks[n]) in |= 1;
     else if (output == pr->uplinks[n]) in |= 2;
   }
-  if ((in & 2) == 0 && output != 0) /* to downlink */
+  for (n = 0; n < pr->nmyas; n++) {
+    if (input == pr->myas[n]) in |= 4;
+    else if (output == pr->myas[n]) in |= 8;
+  }
+  if (output == 0) return; /* already filtered? */
+  if (((in & 1) && ((in & 2) == 0)) || (((in & 5) == 0) && ((in & 10) == 0))) /* from uplink to not uplink or from downlink to downlink */
     add_pkt(NULL, NULL, iphdr, bytes * pr->sampled, 1, 0, pkts * pr->sampled, 1, NULL, 0, 0);
-  if ((in & 1) == 0) /* from downlink */
+  if ((((in & 5) == 0) && ((in & 10) == 0)) || (((in & 1) == 0) && (in & 2))) /* from downlink to downlink or from not uplink to uplink */
     add_pkt(NULL, NULL, iphdr, bytes * pr->sampled, 0, 0, pkts * pr->sampled, 1, NULL, 0, 0);
   if (in != 3 && (input != output || input == 0)) return;
   /* from uplink to uplink or ping-pong */

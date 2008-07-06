@@ -190,6 +190,14 @@ static int parse_line(char *str, char *fname, int nline)
       cur_router->uplinks[cur_router->nuplinks++] = atoi(p+15);
     return 0;
   }
+  if (strncmp(p, "myas-ifindex=", 13)==0)
+  { if (cur_router->nmyas == MAXMYAS)
+      warning("Too many myas interfaces (%d max), extra ignored", MAXMYAS);
+    else
+      cur_router->myas[cur_router->nmyas++] = atoi(p+13);
+    return 0;
+  }
+
 #ifdef DO_SNMP
   if (strncmp(p, "snmp-timeout=", 13)==0)
   { snmp_time_out = atoi(p+13);
@@ -212,6 +220,24 @@ static int parse_line(char *str, char *fname, int nline)
       return 0;
     }
   }
+  { int oid = -1;
+    if (strncmp(p, "myas-ifname=", 12)==0)
+      oid = IFNAME;
+    else if (strncmp(p, "myas-ifdescr=", 13)==0)
+      oid = IFDESCR;
+    else if (strncmp(p, "myas-ifalias=", 13)==0)
+      oid = IFALIAS;
+    else if (strncmp(p, "myas-ifip=", 10)==0)
+      oid = IFIP;
+    if (oid != -1)
+    { if (cur_router->nmyas == MAXMYAS)
+        warning("Too many myas interfaces (%d max), extra ignored", MAXMYAS);
+      else
+        cur_router->myas[cur_router->nmyas++] = get_ifindex(cur_router, oid, &p);
+      return 0;
+    }
+  }
+
 #endif
   if (strncmp(p, "log=", 4)==0)
   { /* reopen log immediately, report below config error to the log */
@@ -933,13 +959,15 @@ static unsigned short get_ifindex(struct router_t *router, enum ifoid_t oid, cha
             strcmp(crouter->community, router->community) == 0)
           break;
       if (crouter && crouter->data[oid]) {
+        warning("snmpwalk on %s error, use old values", printoctets((unsigned char *)&crouter->addr, 4));
         router->data[oid] = crouter->data[oid];
         router->nifaces[oid] = crouter->nifaces[oid];
-	if (!router->ifnumber) router->ifnumber = crouter->ifnumber;
+        if (!router->ifnumber) router->ifnumber = crouter->ifnumber;
         crouter->nifaces[oid] = 0;
         free(crouter->data[oid]);
         crouter->data[oid] = NULL;
-      }
+      } else
+        warning("snmpwalk on %s error and no old values", printoctets((unsigned char *)&crouter->addr, 4));
     }
   /* copy value to val string */
   if (**s == '\"')
