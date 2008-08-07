@@ -518,7 +518,7 @@ int main(int argc, char *argv[])
 #else
       if (setgid(gid))
         warning("setgid failed: %s", strerror(errno));
-      else {
+      else
         debug(1, "Setgid to gid %d done", gid);
 #endif
       if (setuid(uid))
