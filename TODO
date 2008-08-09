@@ -5,7 +5,7 @@
 - опция snap в правиле check
 - check flow seq and report about lost packets
 - по sighup вылетает, если snmp timeout
-- 64-bit os compatible (unsigned int -> uint32)
+- 64-bit OS compatible (unsigned int -> uint32)
 - structures alignment
-- compatibility with other versions of flow-tools storage input
+- compatibility with other versions of flow-tools storage format
 ? perl hooks for alarm/noalarm
