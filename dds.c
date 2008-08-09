@@ -141,6 +141,8 @@ time_t last_check;
 static char *saved_argv[20];
 char *confname;
 int need_reconfig;
+int stdinsrc;
+time_t curtime;
 
 #ifndef HAVE_STRSIGNAL_DECL
 char *strsignal(int signo);
@@ -184,8 +186,6 @@ void hup(int signo)
   }
   else if (signo==SIGUSR1)
   { /* snap traffic during SNAP_TIME */
-    time_t curtime;
-
     if (fsnap)
     { fclose(fsnap);
       fsnap=fopen(snapfile, "a");
@@ -196,7 +196,7 @@ void hup(int signo)
       if (fsnap==NULL)
         warning("Cannot open %s: %s", snapfile, strerror(errno));
     }
-    curtime = time(NULL);
+    if (!stdinsrc || !curtime) curtime = time(NULL);
     if (fsnap)
       fprintf(fsnap, "\n\n----- %s\n", ctime(&curtime));
     snap_start = curtime;
@@ -348,7 +348,7 @@ int usage(void)
 #ifdef WITH_PCAP
          "[-p] [-i <iface>] "
 #endif
-         "[-b [<ip>:]<port>] [config]\n");
+         "[-b [<ip>:]<port>|-s] [config]\n");
   printf("  -d               - daemonize\n");
 #ifdef WITH_PCAP
   printf("  -i <iface>       - listen interface <iface>.\n");
@@ -356,6 +356,7 @@ int usage(void)
 #endif
   printf("  -r               - reverse in/out check (for work on downlink's channel)\n");
   printf("  -b [<ip>:]<port> - receive netflow to <ip>:<port>\n");
+  printf("  -s               - process flow-cap saved data from stdin\n");
   printf("  -v               - increase verbouse level\n");
   return 0;
 }
@@ -455,7 +456,7 @@ int main(int argc, char *argv[])
     saved_argv[i]=argv[i];
   confname=CONFNAME;
   daemonize=promisc=0;
-  while ((i=getopt(argc, argv, "db:hrv?"
+  while ((i=getopt(argc, argv, "db:hrsv?"
 #ifdef WITH_PCAP
                                          "pi:"
 #endif
@@ -463,14 +464,15 @@ int main(int argc, char *argv[])
   {
     switch (i)
     {
-      case 'd': daemonize=1;   break;
+      case 'd': daemonize=1;     break;
 #ifdef WITH_PCAP
-      case 'p': promisc=1;     break;
-      case 'i': piface=optarg; break;
+      case 'p': promisc=1;       break;
+      case 'i': piface=optarg;   break;
 #endif
-      case 'r': reverse=1;     break;
-      case 'b': pflow=optarg;  break;
-      case 'v': verb++;        break;
+      case 'r': reverse=1;       break;
+      case 'b': pflow=optarg;    break;
+      case 'v': verb++;          break;
+      case 's': stdinsrc=1;      break;
       case 'h':
       case '?': usage(); return 1;
       default:  fprintf(stderr, "Unknown option -%c\n", (char)i);
@@ -479,6 +481,15 @@ int main(int argc, char *argv[])
   }
   if (argc>optind)
     confname=argv[optind];
+
+  if (pflow && stdinsrc)
+  { error("-s and -b switches are mutually exclusive");
+    return 1;
+  }
+  if (daemonize && stdinsrc)
+  { error("-s and -d switches are mutually exclusive");
+    return 1;
+  }
 
   if (config(confname))
   { error("Config error");
@@ -504,7 +515,7 @@ int main(int argc, char *argv[])
   { fprintf(f, "%u\n", (unsigned)getpid());
     fclose(f);
   }
-  if (pflow || netflow[0])
+  if (pflow || netflow[0] || stdinsrc)
   {
     if (uid)
     {
@@ -653,7 +664,6 @@ int main(int argc, char *argv[])
 static void vlogwrite(int priority, int display, char *format, va_list ap)
 {
   FILE *f;
-  time_t curtime;
   struct tm *tm;
 #ifdef HAVE_LOCALTIME_R
   struct tm tm1;
@@ -677,7 +687,7 @@ static void vlogwrite(int priority, int display, char *format, va_list ap)
   /* do not output debug info to dds.log */
   if (priority == LOG_DEBUG) return;
 
-  curtime = time(NULL);
+  if (!stdinsrc || !curtime) curtime = time(NULL);
 #ifdef HAVE_LOCALTIME_R
   tm = localtime_r(&curtime, &tm1);
 #else

@@ -57,6 +57,36 @@ static int head, tail;
 static int sockfd = -1;
 u_long flowip;
 static unsigned short flowport;
+static int ft3_byteorder;
+static int ft3_seq;
+
+static struct ft3_header
+{
+  char magic1; /* 0xcf */
+  char magic2; /* 0x10 */
+  char byte_order; /* 1 - big endian or 2 - little endian */
+  char version; /* should be 3 */
+  unsigned int head_off_d; /* header offset */
+  /* ignore all tlv's */
+} ft3_hdr;
+
+static struct ft3_record /* struct fts3rec_v5_gen */
+{
+  unsigned int sec;
+  unsigned int msec;
+  unsigned int uptime;
+  unsigned int saddr;
+  unsigned int srcaddr, dstaddr;
+  unsigned int nexthop;
+  unsigned short int input, output;
+  unsigned int pkts, bytes;
+  unsigned int first, last;
+  unsigned short int srcport, dstport;
+  char prot, tos, flags, pad;
+  char engine_type, engine_id;
+  char src_mask, dst_mask;
+  unsigned short int src_as, dst_as;
+} ft3_rec;
 
 int bindport(char *netflow)
 {
@@ -137,6 +167,52 @@ void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
   }
 }
 
+static unsigned int swapl(unsigned int n)
+{
+  return ((n & 0xff) << 24) | ((n & 0xff00) << 8) | ((n & 0xff0000) >> 8) | ((n & 0xff000000u) >> 24);
+}
+
+static unsigned short int swaps(unsigned short int n)
+{
+  return ((n & 0xff) << 8) | ((n & 0xff00) >> 8);
+}
+
+static unsigned int ft2nl(unsigned int n)
+{
+  return (ft3_byteorder == 1) ? swapl(n) : n;
+}
+
+static unsigned short int ft2ns(unsigned short int n)
+{
+  return (ft3_byteorder == 1) ? swaps(n) : n;
+}
+
+static int readn(int sockfd, void *buf, int n)
+{
+  int i, r;
+  char tmpbuf[4096];
+  char *p;
+
+  i = 0;
+  while (buf == NULL && n-i > sizeof(tmpbuf))
+  {
+    r = readn(sockfd, NULL, sizeof(tmpbuf));
+    if (r < 0) return r;
+    i += r;
+    if (r != sizeof(tmpbuf)) return i;
+  }
+  p = buf ? (char *)buf : tmpbuf;
+  while (n > i)
+  {
+    r = read(sockfd, p, n-i);
+    if (r < 0) return r;
+    if (r == 0) break;
+    p += r;
+    i += r;
+  }
+  return i;
+}
+
 int check_sockets(void)
 {
   int n;
@@ -150,7 +226,7 @@ int check_sockets(void)
   FD_ZERO(&r);
   if ((tail+1)%QSIZE != head)
     FD_SET(sockfd, &r);
-  else
+  else if (!stdinsrc)
     warning("Queue buffer full (too slow CPU for this flow?)");
   if (servsock != -1) FD_SET(servsock, &r);
   tv.tv_sec = 1;
@@ -194,9 +270,57 @@ int check_sockets(void)
   }
   if (!FD_ISSET(sockfd, &r))
     return 0;
-  sl = sizeof(queue[tail].remote_addr);
-  memset(&queue[tail].remote_addr, 0, sizeof(queue[tail].remote_addr));
-  n = recvfrom(sockfd, queue[tail].databuf, sizeof(queue[tail].databuf), 0, (struct sockaddr *)&queue[tail].remote_addr, &sl);
+  if (stdinsrc)
+  { struct head5 *head5buf;
+    struct data5 *data5buf;
+    unsigned int saddr;
+
+    n = readn(sockfd, &ft3_rec, sizeof(ft3_rec));
+    if (n < 0)
+    {
+      error("read stdin error");
+      return -1;
+    }
+    if (n != sizeof(ft3_rec))
+      return -1;
+    /* convert flow-tool record to netflow v5 */
+    n = sizeof(struct head5) + sizeof(struct data5);
+    saddr = (ft3_byteorder == 1) ? swapl(ft3_rec.saddr) : ft3_rec.saddr;
+    memcpy(&queue[tail].remote_addr.sin_addr.s_addr, &saddr, sizeof(saddr));
+    curtime = ft3_rec.sec;
+    head5buf = (struct head5 *)queue[tail].databuf;
+    data5buf = (struct data5 *)(queue[tail].databuf + sizeof(struct head5));
+    memset(queue[tail].databuf, 0, n);
+    head5buf->version   = htons(5);
+    head5buf->count     = htons(1);
+    head5buf->uptime    = ft2nl(ft3_rec.uptime);
+    head5buf->curtime   = ft2nl(ft3_rec.sec);
+    head5buf->curnanosec= htonl(ntohl(ft2nl(ft3_rec.msec)) * 1000);
+    head5buf->seq       = htonl(++ft3_seq); /* htonl(ft3_seq+=ntohs(ft2nl(ft3_rec.drops)+1)); */
+    data5buf->srcaddr   = ft2nl(ft3_rec.srcaddr);
+    data5buf->dstaddr   = ft2nl(ft3_rec.dstaddr);
+    data5buf->nexthop   = ft2nl(ft3_rec.nexthop);
+    data5buf->input     = ft2ns(ft3_rec.input);
+    data5buf->output    = ft2ns(ft3_rec.output);
+    data5buf->pkts      = ft2nl(ft3_rec.pkts);
+    data5buf->bytes     = ft2nl(ft3_rec.bytes);
+    data5buf->first     = ft2nl(ft3_rec.first);
+    data5buf->last      = ft2nl(ft3_rec.last);
+    data5buf->srcport   = ft2ns(ft3_rec.srcport);
+    data5buf->dstport   = ft2ns(ft3_rec.dstport);
+    data5buf->prot      = ft3_rec.prot;
+    data5buf->tos       = ft3_rec.tos;
+    data5buf->flags     = ft3_rec.flags;
+    data5buf->src_mask  = ft3_rec.src_mask;
+    data5buf->dst_mask  = ft3_rec.dst_mask;
+    data5buf->src_as    = ft2ns(ft3_rec.src_as);
+    data5buf->dst_as    = ft2ns(ft3_rec.dst_as);
+  } else
+  {
+    sl = sizeof(queue[tail].remote_addr);
+    memset(&queue[tail].remote_addr, 0, sizeof(queue[tail].remote_addr));
+    n = recvfrom(sockfd, queue[tail].databuf, sizeof(queue[tail].databuf), 0, (struct sockaddr *)&queue[tail].remote_addr, &sl);
+  }
   if (n == -1)
   {
     if (errno != EAGAIN && errno != EINTR)
@@ -275,7 +399,7 @@ static void add_flow(struct router_t *pr, int input, int output,
 
 void recv_flow(void)
 {
-  int ver, i, count, n;
+  int ver, i, count, n, flip;
   struct sockaddr_in *remote_addr;
   char *databuf;
   char pktbuf[sizeof(struct ip)+max(sizeof(struct tcphdr),sizeof(struct udphdr))];
@@ -283,11 +407,39 @@ void recv_flow(void)
   struct router_t *pr;
 
   /* sockfd and servsock can be changed by signal */
+  if (stdinsrc)
+  {
+    sockfd = fileno(stdin);
+    if (readn(sockfd, &ft3_hdr, sizeof(ft3_hdr)) != sizeof(ft3_hdr))
+    { error("Cannot read stdin");
+      return;
+    }
+    if (ft3_hdr.version != 3)
+    { error("Unknown flow-tools version: %u (expected 3)", ft3_hdr.version);
+      return;
+    }
+    if (ft3_hdr.magic1 != (char)0xcf)
+      warning("Unexpected flow-tools magic1: 0x%02x (expected 0xcf)", ft3_hdr.magic1);
+    if (ft3_hdr.magic2 != 0x10)
+      warning("Unexpected flow-tools magic2: 0x%02x (expected 0x10)", ft3_hdr.magic2);
+    ft3_byteorder = ft3_hdr.byte_order;
+    if (htons(1) == 1) /* move to configure script! */
+      flip = (ft3_byteorder == 1) ? 1 : 0;
+    else
+      flip = (ft3_byteorder == 1) ? 0 : 1;
+    n = (flip ? swapl(ft3_hdr.head_off_d) : ft3_hdr.head_off_d) - sizeof(ft3_hdr);
+    if (readn(sockfd, NULL, n) != n)
+    { error("Cannot read stdin");
+      return;
+    }
+  }
   switchsignals(SIG_BLOCK);
   for (;;)
   {
     if (need_reconfig) reconfig();
-    if (time(NULL) - last_check >= check_interval)
+    if (!stdinsrc || !curtime) curtime = time(NULL);
+    if (last_check > curtime) last_check = curtime;
+    if (curtime - last_check >= check_interval)
       check();
     if (check_sockets() < 0) break;
     if (head == tail) continue;

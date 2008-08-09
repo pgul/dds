@@ -624,7 +624,7 @@ int config(char *name)
   }
   if (logname[0] == '\0')
     strncpy(logname, LOGNAME, sizeof(logname)-1);
-  if (!pflow)
+  if (!pflow && !stdinsrc)
   {
     if (strcmp(netflow, old_netflow))
     {

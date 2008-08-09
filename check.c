@@ -74,7 +74,8 @@ static void putsnap(int flow, int in, u_char *src_mac, u_char *dst_mac,
         str_src_ip, str_dst_ip, len);
   }
   fflush(fsnap);
-  if (snap_start + SNAP_TIME < time(NULL))
+  if (!stdinsrc || !curtime) curtime = time(NULL);
+  if (snap_start + SNAP_TIME < curtime)
   { fclose(fsnap);
     fsnap = NULL;
   }
@@ -152,7 +153,6 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
        struct checktype *recheck, unsigned char *recheck_local, int recheck_len)
 {
   u_long local=0, remote=0;
-  time_t curtime;
   struct checktype *pc;
   u_long src_ip, dst_ip;
   u_short dst_port;
@@ -208,7 +208,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
 #endif
   if (fsnap && !recheck)
     putsnap(flow, in, src_mac, dst_mac, src_ip, dst_ip, len, vlan, pkts);
-  curtime = time(NULL);
+  if (!stdinsrc || !curtime) curtime = time(NULL);
   if (verb >= 9)
     debug(9, "%s %u.%u.%u.%u->%u.%u.%u.%u: %lu bytes, %u pkts",
           in ? "Inbound" : "Outbound",
@@ -319,7 +319,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
                     pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
                     printoctets(octets, i+1), cps(newcnt),
                     cp2str(pc->checkpoint));
-            po[0][octets[i]].u1.s1.precount = (u_short)newcnt;
+            po[0][octets[i]].u1.s1.precount = (unsigned int)newcnt;
             break;
           }
         }
@@ -328,6 +328,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     }
     if (pc->last) break;
   }
+  if (last_check > curtime) last_check = curtime;
   if (!recheck && (recheck_arr || recheck_size == 0) && redo)
   { /* save for future recheck */
     if (recheck_size == recheck_cur)
@@ -468,10 +469,10 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
 
 void check(void)
 {
-  time_t curtime;
   struct checktype *pc;
+  time_t curtime; /* local - should not be changed during one check() call */
 
-  curtime = time(NULL);
+  if (!stdinsrc || !curtime) curtime = time(NULL);
   if (curtime == last_check) return;
   leafs = nodes = emptyleafs = emptynodes = semileafs = 0;
   for (pc=checkhead; pc; pc=pc->next) {
