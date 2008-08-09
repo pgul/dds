@@ -440,7 +440,7 @@ void recv_flow(void)
     if (!stdinsrc || !curtime) curtime = time(NULL);
     if (last_check > curtime) last_check = curtime;
     if (curtime - last_check >= check_interval)
-      check();
+      check(curtime);
     if (check_sockets() < 0) break;
     if (head == tail) continue;
     remote_addr = &queue[head].remote_addr;

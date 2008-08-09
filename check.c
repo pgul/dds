@@ -383,7 +383,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     }
   }
   if (curtime - last_check >= check_interval && !recheck)
-    check();
+    check(curtime);
 }
 
 int length(by_type by)
@@ -467,12 +467,10 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
   }
 }
 
-void check(void)
+void check(time_t curtime)
 {
   struct checktype *pc;
-  time_t curtime; /* local - should not be changed during one check() call */
 
-  if (!stdinsrc || !curtime) curtime = time(NULL);
   if (curtime == last_check) return;
   leafs = nodes = emptyleafs = emptynodes = semileafs = 0;
   for (pc=checkhead; pc; pc=pc->next) {

@@ -132,7 +132,7 @@ extern char *piface;
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
              int in, int vlan, int pkts, int flow,
              struct checktype *recheck, unsigned char *local_ip, int re_len);
-void check(void);
+void check(time_t curtime);
 int  config(char *name);
 void reconfig(void);
 int  check_sockets(void);
