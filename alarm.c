@@ -41,9 +41,15 @@ static void chstring(char **str, char *s1, char *s2)
 
 static void run(char *cmd)
 {
-	/* do we need fork() and any security checks? */
+	pid_t pid;
+	/* do we need any security checks? */
 	debug(1, "executing command '%s'", cmd);
-	system(cmd);
+	if ((pid=fork()) == 0)
+		system(cmd);
+	else if (pid<0)
+		error("Cannot fork: %s", strerror(errno));
+	else
+		debug(1, "start process %u", (unsigned int)pid);
 }
 
 char *cp2str(cp_type cp)
