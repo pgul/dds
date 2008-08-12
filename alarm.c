@@ -44,9 +44,10 @@ static void run(char *cmd)
 	pid_t pid;
 	/* do we need any security checks? */
 	debug(1, "executing command '%s'", cmd);
-	if ((pid=fork()) == 0)
+	if ((pid=fork()) == 0) {
 		system(cmd);
-	else if (pid<0)
+		exit(0);
+	} else if (pid<0)
 		error("Cannot fork: %s", strerror(errno));
 	else
 		debug(1, "start process %u", (unsigned int)pid);
