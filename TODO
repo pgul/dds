@@ -8,4 +8,5 @@
 - 64-bit OS compatible (unsigned int -> uint32)
 - structures alignment
 - compatibility with other versions of flow-tools storage format
+- задавать pps/bps в виде 64k, 100M, 4G
 ? perl hooks for alarm/noalarm
