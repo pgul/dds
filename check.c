@@ -241,8 +241,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
           if (th->syn==0 || th->ack)
 #endif
             continue;
-        } else if (pc->checkpoint == UDP || pc->checkpoint == ICMP)
-          continue;
+        }
       } else if (pc->checkpoint == UDP && ip_hdr->ip_p == IPPROTO_UDP)
       {
         struct udphdr *uh = (struct udphdr *)(ip_hdr+1);
@@ -277,7 +276,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
         memcpy(octetsarr, (unsigned char *)&dst_ip, 4);
         memcpy(octetsarr+4, (unsigned char *)&dst_port, 2);
       }
-      if (recheck && memcmp(octets, recheck_local, recheck_len)) continue;
+      if (recheck && memcmp(octets, recheck_local, recheck_len)) break;
       po = &pc->octet;
       for (i=0; ; i++)
       {
