@@ -436,7 +436,10 @@ void recv_flow(void)
   switchsignals(SIG_BLOCK);
   for (;;)
   {
-    if (need_reconfig) reconfig();
+    if (need_reconfig) {
+      logwrite("Reload config");
+      reconfig();
+    }
     if (!stdinsrc || !curtime) curtime = time(NULL);
     if (last_check > curtime) last_check = curtime;
     if (curtime - last_check >= check_interval)
