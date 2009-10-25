@@ -220,18 +220,17 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
   for (pc=checkhead; pc; pc=pc->next)
   {
     if (pc->in != in && pc->in != -1)
-      continue;
-    if (recheck && pc != recheck)
-      continue;
+      goto endofloop;
     if ((local & pc->mask) != pc->ip)
-      continue;
+      goto endofloop;
     if (pc->checkpoint == SYN || pc->checkpoint == ICMP ||
         pc->checkpoint == UDP || pc->by == BYDSTPORT)
     {
       if (ip_hdr->ip_p == IPPROTO_TCP)
       {
         struct tcphdr *th = (struct tcphdr *)(ip_hdr+1);
-        if (pc->checkpoint == UDP || pc->checkpoint == ICMP) continue;
+        if (pc->checkpoint == UDP || pc->checkpoint == ICMP)
+          goto endofloop;
         dst_port = th->th_dport;
         if (pc->checkpoint == SYN) {
 #ifdef TH_SYN
@@ -240,92 +239,126 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
 #else
           if (th->syn==0 || th->ack)
 #endif
-            continue;
+            goto endofloop;
         }
       } else if (pc->checkpoint == UDP && ip_hdr->ip_p == IPPROTO_UDP)
       {
         struct udphdr *uh = (struct udphdr *)(ip_hdr+1);
         dst_port = uh->uh_dport;
       } else if (pc->checkpoint != ICMP || ip_hdr->ip_p != IPPROTO_ICMP)
-        continue;
+        goto endofloop;
     }
+    if (recheck && pc != recheck)
+    {
+      if (verb >= 6)
+        debug(6, "Matched but no action - rechecking another rule: %s %s %s %s (%u.%u.%u.%u->%u.%u.%u.%u)", cp2str(pc->checkpoint),
+              pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
+              ((char *)&src_ip)[0], ((char *)&src_ip)[1],
+              ((char *)&src_ip)[2], ((char *)&src_ip)[3],
+              ((char *)&dst_ip)[0], ((char *)&dst_ip)[1],
+              ((char *)&dst_ip)[2], ((char *)&dst_ip)[3]);
+    } else
+    {
+      if (pc->checkpoint == BPS)
+        val = len;
+      else if (pc->checkpoint == SYN)
+        val = 1;
+      else
+        val = pkts;
+      if (pc->by == BYNONE)
+        pc->count += val;
+      else {
+        struct octet **po;
+        unsigned char octetsarr[8], *octets;
+        int i, pclen;
 
-    if (pc->checkpoint == BPS)
-      val = len;
-    else if (pc->checkpoint == SYN)
-      val = 1;
-    else
-      val = pkts;
-    if (pc->by == BYNONE)
-      pc->count += val;
-    else {
-      struct octet **po;
-      unsigned char octetsarr[8], *octets;
-      int i, pclen;
-
-      octets = octetsarr;
-      pclen = length(pc->by);
-      if (pc->by == BYSRC)
-        octets = (unsigned char *)&src_ip;
-      else if (pc->by == BYDST)
-        octets = (unsigned char *)&dst_ip;
-      else if (pc->by == BYSRCDST) {
-        memcpy(octetsarr, &local, 4);
-        memcpy(octetsarr+4, &remote, 4);
-      } else if (pc->by == BYDSTPORT) {
-        memcpy(octetsarr, (unsigned char *)&dst_ip, 4);
-        memcpy(octetsarr+4, (unsigned char *)&dst_port, 2);
-      }
-      if (recheck && memcmp(octets, recheck_local, recheck_len)) break;
-      po = &pc->octet;
-      for (i=0; ; i++)
-      {
-        if (*po == NULL)
-        {
-          if (verb >= 3)
-            debug(3, "New entry %s %s %s (%s): %s", cp2str(pc->checkpoint),
-                  pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
-                  printoctets(octets, i+1));
-          *po = calloc(256, sizeof(struct octet));
-          if (*po == NULL) {
-            error("Cannot allocate memory: %s", strerror(errno));
-            exit(4);
-          }
+        octets = octetsarr;
+        pclen = length(pc->by);
+        if (pc->by == BYSRC)
+          octets = (unsigned char *)&src_ip;
+        else if (pc->by == BYDST)
+          octets = (unsigned char *)&dst_ip;
+        else if (pc->by == BYSRCDST) {
+          memcpy(octetsarr, &local, 4);
+          memcpy(octetsarr+4, &remote, 4);
+        } else if (pc->by == BYDSTPORT) {
+          memcpy(octetsarr, (unsigned char *)&dst_ip, 4);
+          memcpy(octetsarr+4, (unsigned char *)&dst_port, 2);
         }
-        if (i == pclen-1) {
-          addcount(po[0][octets[i]].u1.count, val);
+        if (recheck && memcmp(octets, recheck_local, recheck_len)) {
+          if (verb >= 6)
+            debug(6, "Matched but no action - recheckng another octets: %s %s %s %s (%u.%u.%u.%u->%u.%u.%u.%u)", cp2str(pc->checkpoint),
+                  pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
+                  ((char *)&src_ip)[0], ((char *)&src_ip)[1],
+                  ((char *)&src_ip)[2], ((char *)&src_ip)[3],
+                  ((char *)&dst_ip)[0], ((char *)&dst_ip)[1],
+                  ((char *)&dst_ip)[2], ((char *)&dst_ip)[3]);
           break;
         }
-        po[0][octets[i]].u1.s1.used_time = curtime;
-        if (po[0][octets[i]].u2.octet == NULL) {
-          /* no detailed stats */
-          count_t newcnt;
-          newcnt = (count_t)(po[0][octets[i]].u1.s1.precount) + val;
-          if (newcnt > 0xffffffffuL || newcnt > (count_t)pc->safelimit * check_interval) {
-            /* turn on detailed stats */
-            if (verb >= 2)
-              debug(2, "%s %s (%s): %s, %lu %s - detailize",
+        po = &pc->octet;
+        if (verb >= 6)
+          debug(6, "Matched: %s %s %s %s (%u.%u.%u.%u->%u.%u.%u.%u)", cp2str(pc->checkpoint),
+                pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
+                ((char *)&src_ip)[0], ((char *)&src_ip)[1],
+                ((char *)&src_ip)[2], ((char *)&src_ip)[3],
+                ((char *)&dst_ip)[0], ((char *)&dst_ip)[1],
+                ((char *)&dst_ip)[2], ((char *)&dst_ip)[3]);
+        for (i=0; ; i++)
+        {
+          if (*po == NULL)
+          {
+            if (verb >= 3)
+              debug(3, "New entry %s %s %s (%s): %s", cp2str(pc->checkpoint),
                     pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
-                    printoctets(octets, i+1), cps(newcnt),
-                    cp2str(pc->checkpoint));
-            po[0][octets[i]].u2.octet = calloc(256, sizeof(struct octet));
-            po[0][octets[i]].u1.s1.precount = 0xffffffffu;
-            if (recheck_arr)
-              reprocess(pc, octets, i+1);
-          } else {
-            if (verb >= 5)
-              debug(5, "%s %s (%s): %s, %lu %s - ok",
-                    pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
-                    printoctets(octets, i+1), cps(newcnt),
-                    cp2str(pc->checkpoint));
-            po[0][octets[i]].u1.s1.precount = (unsigned int)newcnt;
+                    printoctets(octets, i+1));
+            *po = calloc(256, sizeof(struct octet));
+            if (*po == NULL) {
+              error("Cannot allocate memory: %s", strerror(errno));
+              exit(4);
+            }
+          }
+          if (i == pclen-1) {
+            addcount(po[0][octets[i]].u1.count, val);
             break;
           }
+          po[0][octets[i]].u1.s1.used_time = curtime;
+          if (po[0][octets[i]].u2.octet == NULL) {
+            /* no detailed stats */
+            count_t newcnt;
+            newcnt = (count_t)(po[0][octets[i]].u1.s1.precount) + val;
+            if (newcnt > 0xffffffffuL || newcnt > (count_t)pc->safelimit * check_interval) {
+              /* turn on detailed stats */
+              if (verb >= 2)
+                debug(2, "%s %s (%s): %s (%u.%u.%u.%u->%u.%u.%u.%u), %lu %s - detailize",
+                      pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
+                      printoctets(octets, i+1),
+                      ((char *)&src_ip)[0], ((char *)&src_ip)[1],
+                      ((char *)&src_ip)[2], ((char *)&src_ip)[3],
+                      ((char *)&dst_ip)[0], ((char *)&dst_ip)[1],
+                      ((char *)&dst_ip)[2], ((char *)&dst_ip)[3],
+                      cps(newcnt),
+                      cp2str(pc->checkpoint));
+              po[0][octets[i]].u2.octet = calloc(256, sizeof(struct octet));
+              po[0][octets[i]].u1.s1.precount = 0xffffffffu;
+              if (recheck_arr)
+                reprocess(pc, octets, i+1);
+            } else {
+              if (verb >= 5)
+                debug(5, "%s %s (%s): %s, %lu %s - ok",
+                      pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
+                      printoctets(octets, i+1), cps(newcnt),
+                      cp2str(pc->checkpoint));
+              po[0][octets[i]].u1.s1.precount = (unsigned int)newcnt;
+              break;
+            }
+          }
+          po = &po[0][octets[i]].u2.octet;
         }
-        po = &po[0][octets[i]].u2.octet;
       }
     }
     if (pc->last) break;
+endofloop:
+    if (pc == recheck) break;
   }
   if (last_check > curtime) last_check = curtime;
   if (!recheck && (recheck_arr || recheck_size == 0) && redo)
