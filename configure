@@ -1050,7 +1050,7 @@ rm -f conftest*
     ;;
 esac
 
-for ac_func in daemon getifaddrs localtime_r strsignal initgroups
+for ac_func in daemon getifaddrs localtime_r strsignal initgroups strtoull
 do
 echo $ac_n "checking for $ac_func""... $ac_c" 1>&6
 echo "configure:1057: checking for $ac_func" >&5

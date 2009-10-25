@@ -101,6 +101,40 @@ static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
   }
 }
 
+static u_long readlimit(char *p, int bps2cps)
+{
+   unsigned long long limit;
+   char *endp;
+
+#ifdef HAVE_STRTOULL
+   limit = strtoull(p, &endp, 10);
+#else
+   limit = strtoul(p, &endp, 10);
+#endif
+   if (tolower(*endp) == 'k')
+   {
+     limit *= (bps2cps ? 1000 : 1000/8);
+     endp++;
+   } else if (tolower(*endp) == 'm')
+   {
+     limit *= (bps2cps ? 1000000 : 1000000/8);
+   } else if (tolower(*endp) == 'g')
+   {
+     limit *= (bps2cps ? 1000000000 : 1000000000/8);
+   } else if (bps2cps)
+     limit /= 8;
+   if (*endp && !isspace(*endp))
+     limit = 0;
+#ifndef ULONG_MAX
+  #define ULONG_MAX 0xfffffffful
+#endif
+   if (limit > ULONG_MAX)
+   { warning("limit more then max unsigned long, set to ulong_max");
+     limit = ULONG_MAX;
+   }
+   return (u_long) limit;
+}
+
 static int parse_line(char *str, char *fname, int nline)
 {
   char *p;
@@ -401,14 +435,12 @@ incorr:
   sprintf(pc->ipmask, "%s/%u", printoctets((unsigned char *)&pc->ip, 4), pc->preflen);
   while (*p && !isspace(*p)) p++;
   while (*p && isspace(*p)) p++;
-  pc->limit = strtoul(p, NULL, 10);
+  pc->limit = readlimit(p, pc->checkpoint == BPS);
   if (pc->limit == 0) goto incorr;
-  if (pc->checkpoint == BPS) pc->limit /= 8; /* bps -> cps */
   while (*p && !isspace(*p)) p++;
   while (*p && isspace(*p)) p++;
-  pc->safelimit = strtoul(p, NULL, 10);
+  pc->safelimit = readlimit(p, pc->checkpoint == BPS);
   if (pc->safelimit == 0) goto incorr;
-  if (pc->checkpoint == BPS) pc->safelimit /= 8;
   if (pc->safelimit > pc->limit)
   {
     warning("safelimit is more then hardlimit");
