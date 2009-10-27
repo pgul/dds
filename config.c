@@ -113,15 +113,15 @@ static u_long readlimit(char *p, int bps2cps)
 #endif
    if (tolower(*endp) == 'k')
    {
-     limit *= (bps2cps ? 1000 : 1000/8);
+     limit *= (bps2cps ? 1000/8 : 1000);
      endp++;
    } else if (tolower(*endp) == 'm')
    {
-     limit *= (bps2cps ? 1000000 : 1000000/8);
+     limit *= (bps2cps ? 1000000/8 : 1000000);
      endp++;
    } else if (tolower(*endp) == 'g')
    {
-     limit *= (bps2cps ? 1000000000 : 1000000000/8);
+     limit *= (bps2cps ? 1000000000/8 : 1000000000);
      endp++;
    } else if (bps2cps)
      limit /= 8;
