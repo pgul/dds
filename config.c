@@ -445,7 +445,7 @@ incorr:
   if (pc->safelimit == 0) goto incorr;
   if (pc->safelimit > pc->limit)
   {
-    warning("safelimit is more then hardlimit");
+    warning("safelimit %lu is more then hardlimit %lu (%s:%d)", pc->safelimit, pc->limit, fname, nline);
     pc->safelimit = pc->limit;
   }
   for (;;)
