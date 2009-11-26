@@ -123,6 +123,7 @@ extern int servsock;
 extern char *confname;
 extern int stdinsrc;
 extern time_t curtime;
+extern int processfiltered;
 #ifdef WITH_PCAP
 extern int servpid, my_pid, allmacs;
 extern int servpipe[2];

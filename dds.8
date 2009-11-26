@@ -5,7 +5,7 @@ dds \- DoS/DDoS Detecting System
 
 .SH SYNOPSIS
 .B dds
-[\-d] [\-p] [\-r] [\-v] [\-h] [\-i \fI<iface>\fP] [\-b \fI<ip>:<port>\fP|-s] [\fI<config>\fP]
+[\-d] [\-p] [\-r] [\-v <level>] [\-F] [\-h] [\-i \fI<iface>\fP] [\-b \fI<ip>:<port>\fP|-s] [\fI<config>\fP]
 
 .SH DESCRIPTION
 .PP
@@ -38,10 +38,13 @@ Daemonize.
 Don't put the interface into promiscuous mode.
 .TP 10
 .B -s
-Read flow-tools storage data from stdin, not from network
+Read flow-tools storage data from stdin, not from network.
 .TP 10
-.B -v
-Increase verbouse level.
+.B -v \fI<level>\fP
+Set verbose level.
+.TP 10
+.B -F
+Process packets for already filtered out attacks (netflow).
 .TP 10
 .B -r
 Reversing in/out checks. Use this switch if you want to inspect

@@ -364,7 +364,7 @@ static void add_flow(struct router_t *pr, int input, int output,
     if (input == pr->myas[n]) in |= 4;
     else if (output == pr->myas[n]) in |= 8;
   }
-  if (output == 0) return; /* already filtered? */
+  if (output == 0 && !processfiltered) return; /* already filtered? */
   if (((in & 1) && ((in & 2) == 0)) || (((in & 5) == 0) && ((in & 10) == 0))) /* from uplink to not uplink or from downlink to downlink */
     add_pkt(NULL, NULL, iphdr, bytes * pr->sampled, 1, 0, pkts * pr->sampled, 1, NULL, 0, 0);
   if ((((in & 5) == 0) && ((in & 10) == 0)) || (((in & 1) == 0) && (in & 2))) /* from downlink to downlink or from not uplink to uplink */

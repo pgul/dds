@@ -143,6 +143,7 @@ char *confname;
 int need_reconfig;
 int stdinsrc;
 time_t curtime;
+int processfiltered;
 
 #ifndef HAVE_STRSIGNAL_DECL
 char *strsignal(int signo);
@@ -357,7 +358,8 @@ int usage(void)
   printf("  -r               - reverse in/out check (for work on downlink's channel)\n");
   printf("  -b [<ip>:]<port> - receive netflow to <ip>:<port>\n");
   printf("  -s               - process flow-cap saved data from stdin\n");
-  printf("  -v               - increase verbouse level\n");
+  printf("  -F               - do not ignore filtered-out packets\n");
+  printf("  -v <level>       - set verbose level\n");
   return 0;
 }
 
@@ -456,7 +458,7 @@ int main(int argc, char *argv[])
     saved_argv[i]=argv[i];
   confname=CONFNAME;
   daemonize=promisc=0;
-  while ((i=getopt(argc, argv, "db:hrsv?"
+  while ((i=getopt(argc, argv, "db:hrsv:F?"
 #ifdef WITH_PCAP
                                          "pi:"
 #endif
@@ -464,15 +466,16 @@ int main(int argc, char *argv[])
   {
     switch (i)
     {
-      case 'd': daemonize=1;     break;
+      case 'd': daemonize=1;       break;
 #ifdef WITH_PCAP
-      case 'p': promisc=1;       break;
-      case 'i': piface=optarg;   break;
+      case 'p': promisc=1;         break;
+      case 'i': piface=optarg;     break;
 #endif
-      case 'r': reverse=1;       break;
-      case 'b': pflow=optarg;    break;
-      case 'v': verb++;          break;
-      case 's': stdinsrc=1;      break;
+      case 'r': reverse=1;         break;
+      case 'b': pflow=optarg;      break;
+      case 'v': verb=atoi(optarg); break;
+      case 's': stdinsrc=1;        break;
+      case 'F': processfiltered=1; break;
       case 'h':
       case '?': usage(); return 1;
       default:  fprintf(stderr, "Unknown option -%c\n", (char)i);
