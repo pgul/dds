@@ -488,7 +488,7 @@ void recv_flow(void)
         output=ntohs(data1[i].output);
         make_iphdr(iphdr, data1[i].srcaddr, data1[i].dstaddr, data1[i].prot,
                    data1[i].dstport, data1[i].flags);
-	add_flow(pr, input, output, iphdr, bytes, ntohl(data1[i].pkts));
+        add_flow(pr, input, output, iphdr, bytes, ntohl(data1[i].pkts));
       }
     }
     else if (ver == 5)
@@ -516,7 +516,7 @@ void recv_flow(void)
         output=ntohs(data5[i].output);
         make_iphdr(iphdr, data5[i].srcaddr, data5[i].dstaddr, data5[i].prot,
                    data5[i].dstport, data5[i].flags);
-	add_flow(pr, input, output, iphdr, bytes, ntohl(data5[i].pkts));
+        add_flow(pr, input, output, iphdr, bytes, ntohl(data5[i].pkts));
       }
     }
     else
