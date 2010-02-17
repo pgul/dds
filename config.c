@@ -68,7 +68,7 @@ static void freerouter(struct router_t *router)
 #endif
 }
 
-static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
+static void read_ip(char *p, uint32_t *ip, uint32_t *mask, int *pref_len)
 { char c, *p1;
 
   for (p1=p; *p1 && (isdigit(*p1) || *p1=='.'); p1++);
@@ -88,7 +88,7 @@ static void read_ip(char *p, u_long *ip, u_long *mask, int *pref_len)
   }
   *p1=c; p=p1;
   if ((*ip & *mask) != *ip)
-  { unsigned long masked = (*ip & *mask);
+  { uint32_t masked = (*ip & *mask);
     warning("%u.%u.%u.%u inconsistent with /%d (mask %u.%u.%u.%u)!",
            ((char *)ip)[0], ((char *)ip)[1],
            ((char *)ip)[2], ((char *)ip)[3],

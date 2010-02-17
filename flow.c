@@ -16,35 +16,35 @@
 #include "dds.h"
 
 static struct head1 {
-  short unsigned int version, count;
-  unsigned int uptime, curtime, curnanosec;
-} *head1;
+  uint16_t version, count;
+  uint32_t uptime, curtime, curnanosec;
+} __attribute__((packed)) *head1;
 
 static struct data1 {
-  unsigned int srcaddr, dstaddr, nexthop;
-  unsigned short int input, output;
-  unsigned int pkts, bytes, first, last;
-  unsigned short int srcport, dstport, pad;
+  uint32_t srcaddr, dstaddr, nexthop;
+  uint16_t input, output;
+  uint32_t pkts, bytes, first, last;
+  uint16_t srcport, dstport, pad;
   unsigned char prot, tos, flags, pad1, pad2, pad3;
-  unsigned int reserved;
-} *data1;
+  uint32_t reserved;
+} __attribute__((packed)) *data1;
 
 static struct head5 {
-  short unsigned int version, count;
-  unsigned int uptime, curtime, curnanosec;
-  unsigned int seq, pad;
-} *head5;
+  uint16_t version, count;
+  uint32_t uptime, curtime, curnanosec;
+  uint32_t seq, pad;
+} __attribute__((packed)) *head5;
 
 static struct data5 {
-  unsigned int srcaddr, dstaddr, nexthop;
-  unsigned short int input, output;
-  unsigned int pkts, bytes, first, last;
-  unsigned short int srcport, dstport;
+  uint32_t srcaddr, dstaddr, nexthop;
+  uint16_t input, output;
+  uint32_t pkts, bytes, first, last;
+  uint16_t srcport, dstport;
   unsigned char pad1, flags, prot, tos;
-  unsigned short src_as, dst_as;
+  uint16_t src_as, dst_as;
   unsigned char src_mask, dst_mask;
-  unsigned short pad2;
-} *data5;
+  uint16_t pad2;
+} __attribute__((packed)) *data5;
 
 static struct
 {
@@ -54,17 +54,17 @@ static struct
     struct {
       struct head1 head;
       struct data1 data[MTU/sizeof(struct data1)];
-    } ver1;
+    } __attribute__((packed)) ver1;
     struct {
       struct head5 head;
       struct data5 data[MTU/sizeof(struct data5)];
-    } ver5;
+    } __attribute__((packed)) ver5;
   } databuf;
 } queue[QSIZE];
 
 static int head, tail;
 static int sockfd = -1;
-u_long flowip;
+in_addr_t flowip;
 static unsigned short flowport;
 static int ft3_byteorder;
 static int ft3_seq;
@@ -75,27 +75,27 @@ static struct ft3_header
   char magic2; /* 0x10 */
   char byte_order; /* 1 - big endian or 2 - little endian */
   char version; /* should be 3 */
-  unsigned int head_off_d; /* header offset */
+  uint32_t head_off_d; /* header offset */
   /* ignore all tlv's */
-} ft3_hdr;
+} __attribute__((packed)) ft3_hdr;
 
 static struct ft3_record /* struct fts3rec_v5_gen */
 {
-  unsigned int sec;
-  unsigned int msec;
-  unsigned int uptime;
-  unsigned int saddr;
-  unsigned int srcaddr, dstaddr;
-  unsigned int nexthop;
-  unsigned short int input, output;
-  unsigned int pkts, bytes;
-  unsigned int first, last;
-  unsigned short int srcport, dstport;
+  uint32_t sec;
+  uint32_t msec;
+  uint32_t uptime;
+  uint32_t saddr;
+  uint32_t srcaddr, dstaddr;
+  uint32_t nexthop;
+  uint16_t input, output;
+  uint32_t pkts, bytes;
+  uint32_t first, last;
+  uint16_t srcport, dstport;
   char prot, tos, flags, pad;
   char engine_type, engine_id;
   char src_mask, dst_mask;
-  unsigned short int src_as, dst_as;
-} ft3_rec;
+  uint16_t src_as, dst_as;
+} __attribute__((packed)) ft3_rec;
 
 int bindport(char *netflow)
 {
@@ -151,8 +151,8 @@ int bindport(char *netflow)
   return 0;
 }
 
-void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
-          unsigned char prot, unsigned short dport, unsigned char flags)
+void make_iphdr(void *iphdr, uint32_t saddr, uint32_t daddr,
+          uint16_t prot, uint16_t dport, unsigned char flags)
 {
   struct ip *ip_hdr = (struct ip *)iphdr;
   ip_hdr->ip_p = prot;
@@ -401,9 +401,12 @@ static void add_flow(struct router_t *pr, int input, int output,
     }
   }
 #endif
-  warning("%s: router %s, input %u%s output %u%s pkt %s->%s",
+  warning("%s:%s%s%s input %u%s output %u%s pkt %s->%s",
            (input == output) ? "Ping-pong" : "Packet from upstream to upstream",
-           printoctets((unsigned char *)&pr->addr, 4), input, sinput, output, soutput, ip_src, ip_dst);
+		   pr->addr == (u_long)-1 ? "" : " router ",
+		   pr->addr == (u_long)-1 ? "" : printoctets((unsigned char *)&pr->addr, 4),
+		   pr->addr == (u_long)-1 ? "" : ",",
+           input, sinput, output, soutput, ip_src, ip_dst);
 }
 
 void recv_flow(void)

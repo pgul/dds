@@ -26,14 +26,14 @@
 #define max(a, b)	((a) > (b) ? (a) : (b))
 #endif
 
-typedef unsigned long long count_t;
+typedef uint64_t count_t;
 
 struct octet {
 	union {
 		count_t count;			/* 64-bit */
 		struct {
 			time_t used_time;	/* 32-bit */
-			unsigned int precount;	/* 32-bit */
+			uint32_t precount;	/* 32-bit */
 		} s1;
 	} u1;
 	union {
@@ -51,7 +51,7 @@ enum ifoid_t { IFNAME, IFDESCR, IFALIAS, IFIP };
 #endif
 
 struct router_t {
-	u_long addr;
+	uint32_t addr;
 #ifdef DO_SNMP
 	char community[256];
 	int  ifnumber;
@@ -69,12 +69,12 @@ struct router_t {
 };
 
 struct checktype {
-	u_long ip, mask;
+	uint32_t ip, mask;
 	int preflen, in, last, alarmed;
 	cp_type checkpoint;
 	by_type by;
 	u_long limit, safelimit;
-	unsigned long long count;
+	count_t count;
 	struct octet *octet;
 	struct checktype *next;
 	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
@@ -82,13 +82,13 @@ struct checktype {
 };
 
 struct recheck_t {
-	u_long s_addr, d_addr;
+	uint32_t s_addr, d_addr;
 	int len;
 	int in:8;
 	unsigned int pkts:24;
-	unsigned short d_port;
+	uint16_t d_port;
 	unsigned char proto, flags;
-};
+} __attribute__((packed));
 
 struct alarm_t
 {
@@ -117,8 +117,8 @@ extern uid_t uid;
 extern gid_t gid;
 extern u_char *my_mac[];
 extern struct router_t *routers;
-extern u_long flowip;
-extern unsigned short servport;
+extern in_addr_t flowip;
+extern uint16_t servport;
 extern int servsock;
 extern char *confname;
 extern int stdinsrc;
@@ -149,8 +149,8 @@ void warning(char *format, ...);
 void error(char *format, ...);
 int  bindport(char *netflow);
 void recv_flow(void);
-void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
-          unsigned char prot, unsigned short dport, unsigned char flags);
+void make_iphdr(void *iphdr, uint32_t saddr, uint32_t daddr,
+          uint16_t prot, uint16_t dport, unsigned char flags);
 int  bindserv(void);
 void serv(void);
 void print_alarms(int fd);
