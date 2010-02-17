@@ -8,4 +8,5 @@
 - 64-bit OS compatible (unsigned int -> uint32)
 - structures alignment
 - compatibility with other versions of flow-tools storage format
+- process compressed flow-capture
 ? perl hooks for alarm/noalarm

@@ -673,7 +673,7 @@ int config(char *name)
     if (bindserv())
       return -1;
 #ifdef DO_PERL
-  if (perlfile)
+  if (perlfile[0])
   {
     struct stat st;
     old_mtime = perl_mtime;

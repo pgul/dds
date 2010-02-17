@@ -21,6 +21,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#ifdef HAVE_GRP_H
+#include <grp.h>
+#endif
 #ifdef WITH_PCAP
 #ifdef HAVE_NET_ETHERNET_H
 #include <net/ethernet.h>
@@ -357,7 +360,7 @@ int usage(void)
 #endif
   printf("  -r               - reverse in/out check (for work on downlink's channel)\n");
   printf("  -b [<ip>:]<port> - receive netflow to <ip>:<port>\n");
-  printf("  -s               - process flow-cap saved data from stdin\n");
+  printf("  -s               - process flow-cap saved data from stdin (uncompressed!)\n");
   printf("  -F               - do not ignore filtered-out packets\n");
   printf("  -v <level>       - set verbose level\n");
   return 0;

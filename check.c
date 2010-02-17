@@ -155,7 +155,7 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
   u_long local=0, remote=0;
   struct checktype *pc;
   u_long src_ip, dst_ip;
-  u_short dst_port;
+  u_short dst_port = 0; /* not needed, but inhibit warning */
   int val;
 
 #if 0

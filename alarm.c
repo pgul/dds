@@ -188,10 +188,13 @@ void do_alarms(void)
 			if (pa->by == BYNONE) {
 				if (pa->preflen > ppa->preflen) continue;
 				if (pa->preflen) {
-					u_long mask;
+					u_long ip, mask;
 					mask = 0xfffffffful << (32-pa->preflen);
-					mask = htonl(mask);
-					if ((*(u_long *)ppa->ip & mask) != *(u_long *)pa->ip)
+					/* if (*(u_long *)ppa->ip & htonl(mask) != *(u_long *)pa->ip) -- warning */
+					/* assert(iplen >= sizeof(ip)) */
+					memcpy(&ip, ppa->ip, iplen);
+					ip &= htonl(mask);
+					if (memcmp(&ip, pa->ip, iplen))
 						continue;
 				}
 			} else {

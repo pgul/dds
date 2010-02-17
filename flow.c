@@ -50,7 +50,16 @@ static struct
 {
   struct sockaddr_in remote_addr;
   int  n;
-  char databuf[MTU];
+  union {
+    struct {
+      struct head1 head;
+      struct data1 data[MTU/sizeof(struct data1)];
+    } ver1;
+    struct {
+      struct head5 head;
+      struct data5 data[MTU/sizeof(struct data5)];
+    } ver5;
+  } databuf;
 } queue[QSIZE];
 
 static int head, tail;
@@ -147,8 +156,8 @@ void make_iphdr(void *iphdr, u_long saddr, u_long daddr,
 {
   struct ip *ip_hdr = (struct ip *)iphdr;
   ip_hdr->ip_p = prot;
-  ip_hdr->ip_src = *(struct in_addr *)(void *)&saddr;
-  ip_hdr->ip_dst = *(struct in_addr *)(void *)&daddr;
+  ip_hdr->ip_src.s_addr = saddr;
+  ip_hdr->ip_dst.s_addr = daddr;
   if (prot == IPPROTO_TCP)
   {
     struct tcphdr *th = (struct tcphdr *)(ip_hdr+1);
@@ -285,12 +294,12 @@ int check_sockets(void)
       return -1;
     /* convert flow-tool record to netflow v5 */
     n = sizeof(struct head5) + sizeof(struct data5);
-    saddr = (ft3_byteorder == 1) ? swapl(ft3_rec.saddr) : ft3_rec.saddr;
+    saddr = ft2nl(ft3_rec.saddr);
     memcpy(&queue[tail].remote_addr.sin_addr.s_addr, &saddr, sizeof(saddr));
     curtime = ft3_rec.sec;
-    head5buf = (struct head5 *)queue[tail].databuf;
-    data5buf = (struct data5 *)(queue[tail].databuf + sizeof(struct head5));
-    memset(queue[tail].databuf, 0, n);
+    head5buf = &queue[tail].databuf.ver5.head;
+    data5buf = queue[tail].databuf.ver5.data;
+    memset(&queue[tail].databuf, 0, n);
     head5buf->version   = htons(5);
     head5buf->count     = htons(1);
     head5buf->uptime    = ft2nl(ft3_rec.uptime);
@@ -319,7 +328,7 @@ int check_sockets(void)
   {
     sl = sizeof(queue[tail].remote_addr);
     memset(&queue[tail].remote_addr, 0, sizeof(queue[tail].remote_addr));
-    n = recvfrom(sockfd, queue[tail].databuf, sizeof(queue[tail].databuf), 0, (struct sockaddr *)&queue[tail].remote_addr, &sl);
+    n = recvfrom(sockfd, &queue[tail].databuf, sizeof(queue[tail].databuf), 0, (struct sockaddr *)&queue[tail].remote_addr, &sl);
   }
   if (n == -1)
   {
@@ -401,7 +410,6 @@ void recv_flow(void)
 {
   int ver, i, count, n, flip;
   struct sockaddr_in *remote_addr;
-  char *databuf;
   char pktbuf[sizeof(struct ip)+max(sizeof(struct tcphdr),sizeof(struct udphdr))];
   struct ip *iphdr = (struct ip *)pktbuf;
   struct router_t *pr;
@@ -452,7 +460,6 @@ void recv_flow(void)
       if (pr->addr == (u_long)-1 || pr->addr == remote_addr->sin_addr.s_addr)
         break;
     }
-    databuf = queue[head].databuf;
     n = queue[head].n;
     if (!pr)
     { 
@@ -462,7 +469,7 @@ void recv_flow(void)
         goto nextpkt;
       }
     }
-    ver = ntohs(*(short int *)databuf);
+    ver = ntohs(queue[head].databuf.ver5.head.version);
     if (ver == 1)
     {
       if (n < sizeof(struct head1))
@@ -470,13 +477,13 @@ void recv_flow(void)
         warning("Too small pkt ignored");
         goto nextpkt;
       }
-      head1 = (struct head1 *)databuf;
+      head1 = &queue[head].databuf.ver1.head;
       if (n != sizeof(*head1)+ntohs(head1->count)*sizeof(*data1))
       {
         warning("Pkt with wrong size ignored");
         goto nextpkt;
       }
-      data1 = (struct data1 *)(head1+1);
+      data1 = queue[head].databuf.ver1.data;
       count = ntohs(head1->count);
       for (i=0; i<count; i++)
       {
@@ -498,13 +505,13 @@ void recv_flow(void)
         warning("Too small pkt ignored");
         goto nextpkt;
       }
-      head5 = (struct head5 *)databuf;
+      head5 = &queue[head].databuf.ver5.head;
       if (n != sizeof(*head5)+ntohs(head5->count)*sizeof(*data5))
       {
         warning("Pkt with wrong size ignored");
         continue;
       }
-      data5 = (struct data5 *)(head5+1);
+      data5 = queue[head].databuf.ver5.data;
       count = ntohs(head5->count);
       for (i=0; i<count; i++)
       {

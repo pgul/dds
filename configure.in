@@ -8,7 +8,7 @@ AC_PATH_PROG(PERL, perl, perl)
 
 CFLAGS=
 dnl Checks for header files.
-AC_CHECK_HEADERS(sys/ioctl.h getopt.h)
+AC_CHECK_HEADERS(sys/ioctl.h getopt.h grp.h)
 AC_CHECK_HEADERS(net/ethernet.h netinet/if_ether.h net/if_dl.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
