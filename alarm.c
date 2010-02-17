@@ -126,7 +126,7 @@ void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc)
 #ifdef WITH_PCAP
 	         my_mac[0] ? *(u_long *)(my_mac+2) :
 #endif
-	         flowip);
+	         (u_long)flowip);
 	pa->next = alarm_head;
 	alarm_head = pa;
 }
