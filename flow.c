@@ -13,6 +13,9 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#ifdef WITH_ZLIB
+#include <zlib.h>
+#endif
 #include "dds.h"
 
 static struct head1 {
@@ -69,6 +72,9 @@ static unsigned short flowport;
 static int ft3_byteorder;
 static int ft3_seq;
 
+#define FT_TLV_HEADER_FLAGS     8
+#define FT_HEADER_FLAG_COMPRESS 0x2
+
 static struct ft3_header
 {
   char magic1; /* 0xcf */
@@ -76,8 +82,8 @@ static struct ft3_header
   char byte_order; /* 1 - big endian or 2 - little endian */
   char version; /* should be 3 */
   uint32_t head_off_d; /* header offset */
-  /* ignore all tlv's */
 } __attribute__((packed)) ft3_hdr;
+uint32_t ft3_flags;
 
 static struct ft3_record /* struct fts3rec_v5_gen */
 {
@@ -96,6 +102,10 @@ static struct ft3_record /* struct fts3rec_v5_gen */
   char src_mask, dst_mask;
   uint16_t src_as, dst_as;
 } __attribute__((packed)) ft3_rec;
+
+#ifdef WITH_ZLIB
+z_stream zdata;
+#endif
 
 int bindport(char *netflow)
 {
@@ -233,7 +243,7 @@ int check_sockets(void)
   struct sockaddr_in client;
 
   FD_ZERO(&r);
-  if ((tail+1)%QSIZE != head)
+  if ((tail+1) % QSIZE != head)
     FD_SET(sockfd, &r);
   else if (!stdinsrc)
     warning("Queue buffer full (too slow CPU for this flow?)");
@@ -284,7 +294,36 @@ int check_sockets(void)
     struct data5 *data5buf;
     unsigned int saddr;
 
-    n = readn(sockfd, &ft3_rec, sizeof(ft3_rec));
+#ifdef WITH_ZLIB
+    if (ft3_flags & FT_HEADER_FLAG_COMPRESS)
+    {
+      int rc;
+      static char zbuf[4096];
+
+      zdata.next_out = (Bytef *)&ft3_rec;
+      zdata.avail_out = (uLong)sizeof(ft3_rec);
+      while (zdata.avail_out)
+      {
+        if (zdata.avail_in == 0)
+        {
+          zdata.avail_in = n = readn(sockfd, zbuf, sizeof(zbuf));
+          if (n <= 0) break;
+          zdata.next_in = (Bytef *)&zbuf;
+        }
+        rc = inflate(&zdata, 0);
+        n = sizeof(ft3_rec) - zdata.avail_out;
+        if (rc == Z_STREAM_END)
+          break;
+        else if (rc != Z_OK)
+        {
+          error("decompress stdin error, inflate retcode %u", rc);
+          return -1;
+        }
+      }
+    }
+    else
+#endif
+      n = readn(sockfd, &ft3_rec, sizeof(ft3_rec));
     if (n < 0)
     {
       error("read stdin error");
@@ -439,9 +478,55 @@ void recv_flow(void)
     else
       flip = (ft3_byteorder == 1) ? 0 : 1;
     n = (flip ? swapl(ft3_hdr.head_off_d) : ft3_hdr.head_off_d) - sizeof(ft3_hdr);
-    if (readn(sockfd, NULL, n) != n)
-    { error("Cannot read stdin");
-      return;
+    if (n)
+    { char *tlv_buf, *tlv_p;
+      uint16_t tlv_type, tlv_len;
+
+      tlv_buf = malloc(n);
+      if (tlv_buf == NULL)
+      { error("Cannot allocate memory, needed %u bytes", n);
+        return;
+      }
+      if (readn(sockfd, tlv_buf, n) != n)
+      { error("Cannot read stdin");
+        return;
+      }
+      tlv_p = tlv_buf;
+      while (n >= 4)
+      {
+        memcpy(&tlv_type, tlv_p, 2);
+        tlv_p += 2;
+        tlv_type = flip ? swaps(tlv_type) : tlv_type;
+        memcpy(&tlv_len, tlv_p, 2);
+        tlv_p += 2;
+        tlv_len = flip ? swaps(tlv_len) : tlv_len;
+        n -= 4;
+        if (n < tlv_len) break;
+        switch (tlv_type)
+        {
+          case FT_TLV_HEADER_FLAGS:
+            if (tlv_len >= 4)
+            { memcpy(&ft3_flags, tlv_p, 4);
+              if (flip) ft3_flags = swapl(ft3_flags);
+            }
+            break;
+        }
+        tlv_p += tlv_len;
+      }
+      free(tlv_buf);
+      if (ft3_flags & FT_HEADER_FLAG_COMPRESS)
+      {
+#ifdef WITH_ZLIB
+        if (inflateInit(&zdata) != Z_OK)
+        { error("ZLib decompress init error, try to use flow-cat");
+          return;
+        }
+        debug(2, "Process compressed flow data");
+#else
+        error("Data compressed and no zlib support, use flow-cat");
+        return;
+#endif
+      }
     }
   }
   switchsignals(SIG_BLOCK);
@@ -537,4 +622,9 @@ nextpkt:
     if (head == QSIZE) head=0;
   }
   switchsignals(SIG_UNBLOCK);
+#ifdef WITH_ZLIB
+  if (stdinsrc)
+    if (ft3_flags & FT_HEADER_FLAG_COMPRESS)
+      inflateEnd(&zdata);
+#endif
 }

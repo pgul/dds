@@ -6,5 +6,4 @@
 - check flow seq and report about lost packets
 - по sighup вылетает, если snmp timeout
 - compatibility with other versions of flow-tools storage format
-- process compressed flow-capture
 ? perl hooks for alarm/noalarm
