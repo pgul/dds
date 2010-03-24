@@ -323,8 +323,26 @@ case x$withval in
                  AC_MSG_RESULT(cross-compiling. No assumptions made))
                 case x$snmp_ok in
                   xno)
-                    LIBS="$OLD_LIBS"
-                    LDFLAGS="$OLD_LDFLAGS"
+                    AC_MSG_CHECKING(for -fstack-protector needed for libnetsnmp)
+                    LDFLAGS="$OLD_LDFLAGS -fstack-protector"
+                    AC_TRY_LINK([],[snmp_sess_init()],
+                     AC_MSG_RESULT(yes); snmp_ok=yes, AC_MSG_RESULT(no),
+                     AC_MSG_RESULT(cross-compiling. No assumptions made))
+                    case x$snmp_ok in
+                      xno)
+                        AC_MSG_CHECKING(for -fstack-protector needed for libnetsnmp in /usr/local/lib)
+                        LDFLAGS="$LDFLAGS -L/usr/local/lib"
+                        AC_TRY_LINK([],[snmp_sess_init()],
+                         AC_MSG_RESULT(yes); snmp_ok=yes, AC_MSG_RESULT(no),
+                         AC_MSG_RESULT(cross-compiling. No assumptions made))
+                        case x$snmp_ok in
+                          xno)
+                            LIBS="$OLD_LIBS"
+                            LDFLAGS="$OLD_LDFLAGS"
+                            ;;
+                        esac
+                        ;;
+                    esac
                     ;;
                 esac
                 ;;
