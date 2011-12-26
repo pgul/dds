@@ -525,6 +525,10 @@ int main(int argc, char *argv[])
   {
     if (uid)
     {
+      if (setgid(gid))
+        warning("setgid failed: %s", strerror(errno));
+      else
+        debug(1, "Setgid to gid %d done", gid);
 #ifdef HAVE_INITGROUPS
       if (uids)
       { if (initgroups(uids, gid))
@@ -532,11 +536,6 @@ int main(int argc, char *argv[])
         else
           debug(1, "initgroups for user %s (base gid %d) done", uids, gid);
       }
-#else
-      if (setgid(gid))
-        warning("setgid failed: %s", strerror(errno));
-      else
-        debug(1, "Setgid to gid %d done", gid);
 #endif
       if (setuid(uid))
         warning("setuid failed: %s", strerror(errno));
