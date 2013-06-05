@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #include <pwd.h>
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
@@ -562,6 +563,8 @@ int bindserv(void)
   opt = 1;
   if (setsockopt (servsock, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof opt))
     warning("Can't servsock SO_REUSEADDR: %s", strerror(errno));
+  if (fcntl (servsock, F_SETFD, FD_CLOEXEC))
+    warning("Can't fcntl D_SETFD FD_CLOEXEC: %s", strerror(errno));
   memset(&serv_addr, 0, sizeof serv_addr);
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_addr.s_addr = htonl (INADDR_ANY);

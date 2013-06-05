@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -146,6 +147,8 @@ int bindport(char *netflow)
   }
   if (setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof opt))
     warning("Warning: cannot setsockopt SO_REUSEADDR: %s", strerror(errno));
+  if (fcntl (sockfd, F_SETFD, FD_CLOEXEC))
+    warning("Can't fcntl D_SETFD FD_CLOEXEC: %s", strerror(errno));
 
   memset(&myaddr, 0, sizeof(myaddr));
   myaddr.sin_family = AF_INET;
