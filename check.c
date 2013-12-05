@@ -25,7 +25,7 @@
 #endif
 #include "dds.h"
 
-#define cps(count) (unsigned long)((unsigned long long)(count) * (pc->checkpoint == BPS ? 8 : 1) / ((curtime > last_check) ? (curtime - last_check) : 1))
+#define cps(count) (count_t)((unsigned long long)(count) * (pc->checkpoint == BPS ? 8 : 1) / ((curtime > last_check) ? (curtime - last_check) : 1))
 #define addcount(count, p)	(((count) + (p) >= (count)) ? ((count) += (p)) : (count_t)-1)
 
 #ifdef WITH_PCAP
@@ -329,14 +329,14 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
             if (newcnt > 0xffffffffuL || newcnt > (count_t)pc->safelimit * check_interval) {
               /* turn on detailed stats */
               if (verb >= 2)
-                debug(2, "%s %s (%s): %s (%u.%u.%u.%u->%u.%u.%u.%u), %lu %s - detailize",
+                debug(2, "%s %s (%s): %s (%u.%u.%u.%u->%u.%u.%u.%u), %llu %s - detailize",
                       pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
                       printoctets(octets, i+1),
                       ((char *)&src_ip)[0], ((char *)&src_ip)[1],
                       ((char *)&src_ip)[2], ((char *)&src_ip)[3],
                       ((char *)&dst_ip)[0], ((char *)&dst_ip)[1],
                       ((char *)&dst_ip)[2], ((char *)&dst_ip)[3],
-                      cps(newcnt),
+                      (unsigned long long)cps(newcnt),
                       cp2str(pc->checkpoint));
               po[0][octets[i]].u2.octet = calloc(256, sizeof(struct octet));
               po[0][octets[i]].u1.s1.precount = 0xffffffffu;
@@ -344,11 +344,11 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
                 reprocess(pc, octets, i+1);
             } else {
               if (verb >= 5)
-                debug(5, "%s %s (%s): %s, %lu %s - ok",
+                debug(5, "%s %s (%s): %s, %llu %s - ok",
                       pc->in ? "to" : "from", pc->ipmask, by2str(pc->by),
-                      printoctets(octets, i+1), cps(newcnt),
+                      printoctets(octets, i+1), (unsigned long long)cps(newcnt),
                       cp2str(pc->checkpoint));
-              po[0][octets[i]].u1.s1.precount = (unsigned int)newcnt;
+              po[0][octets[i]].u1.s1.precount = (uint32_t)newcnt;
               break;
             }
           }
@@ -457,18 +457,18 @@ void check_octet(struct checktype *pc, struct octet *octet, int level,
           octet[i].u2.alarmed = alarm_flaps;
         }
         else
-          debug(1, "%s %s %s is %lu - safe DoS", cp2str(pc->checkpoint),
+          debug(1, "%s %s %s is %llu - safe DoS", cp2str(pc->checkpoint),
                 pc->in ? "to" : "from",
-                printip(ip, 32, pc->by, pc->in), cps(octet[i].u1.count));
+                printip(ip, 32, pc->by, pc->in), (unsigned long long)cps(octet[i].u1.count));
       } else {
         if (octet[i].u2.alarmed) {
           exec_alarm(ip, cps(octet[i].u1.count), pc);
           octet[i].u2.alarmed--;
         }
         if (octet[i].u1.count && verb >= 2)
-          debug(2, "%s %s %s is %lu - ok", cp2str(pc->checkpoint),
+          debug(2, "%s %s %s is %llu - ok", cp2str(pc->checkpoint),
                 pc->in ? "to" : "from",
-                printip(ip, 32, pc->by, pc->in), cps(octet[i].u1.count));
+                printip(ip, 32, pc->by, pc->in), (unsigned long long)cps(octet[i].u1.count));
       }
       octet[i].u1.count = 0;
     } else if (octet[i].u2.octet) {

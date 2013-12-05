@@ -102,9 +102,9 @@ static void read_ip(char *p, uint32_t *ip, uint32_t *mask, int *pref_len)
   }
 }
 
-static u_long readlimit(char *p, int bps2cps)
+static count_t readlimit(char *p, int bps2cps)
 {
-   unsigned long long limit;
+   count_t limit;
    char *endp;
 
 #ifdef HAVE_STRTOULL
@@ -135,7 +135,7 @@ static u_long readlimit(char *p, int bps2cps)
    { warning("limit more then max unsigned long, set to ulong_max");
      limit = ULONG_MAX;
    }
-   return (u_long) limit;
+   return limit;
 }
 
 static int parse_line(char *str, char *fname, int nline)
@@ -446,7 +446,8 @@ incorr:
   if (pc->safelimit == 0) goto incorr;
   if (pc->safelimit > pc->limit)
   {
-    warning("safelimit %lu is more then hardlimit %lu (%s:%d)", pc->safelimit, pc->limit, fname, nline);
+    warning("safelimit %llu is more then hardlimit %llu (%s:%d)",
+            (unsigned long long)pc->safelimit, (unsigned long long)pc->limit, fname, nline);
     pc->safelimit = pc->limit;
   }
   for (;;)

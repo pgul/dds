@@ -10,6 +10,9 @@
 # $id (alarm identifier, uniq string)
 # $inhibited (0 or 1, is more specific alarm active now)
 
+# Warning: perl should be compiled with 64-bit integer for correct 
+# process $limit, $safelimit and $count more then 4G
+
 sub alarm_start
 {
 }

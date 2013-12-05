@@ -77,7 +77,7 @@ char *by2str(by_type by)
 	return "";
 }
 
-void exec_alarm(unsigned char *ip, u_long count, struct checktype *pc)
+void exec_alarm(unsigned char *ip, count_t count, struct checktype *pc)
 {
 	struct alarm_t *pa;
 	int iplen;
@@ -135,10 +135,10 @@ static void alarm_event(struct alarm_t *pa, int event)
 {
 	char str[64], *cmd;
 
-	logwrite("DoS %s %s %s: %lu %s%s", pa->in ? "to" : "from",
+	logwrite("DoS %s %s %s: %llu %s%s", pa->in ? "to" : "from",
 	         printip(pa->ip, pa->preflen, pa->by, pa->in),
 	         event == ALARM_START ? "detected" : (event == ALARM_FINISH ? "finished" : "continue"),
-	         pa->count, cp2str(pa->cp),
+	         (unsigned long long)pa->count, cp2str(pa->cp),
 		 pa->inhibited ? " (inhibited by more specific)" : "");
 #ifdef DO_PERL
 	perl_alarm_event(pa, event);
@@ -150,7 +150,7 @@ static void alarm_event(struct alarm_t *pa, int event)
 		chstring(&cmd, "%b", cp2str(pa->cp));
 		strncpy(str, printip(pa->ip, pa->preflen, pa->by, pa->in), sizeof(str)-1);
 		chstring(&cmd, "%d", str);
-		snprintf(str, sizeof(str), "%lu", pa->count);
+		snprintf(str, sizeof(str), "%llu", (unsigned long long)pa->count);
 		chstring(&cmd, "%p", str);
 		chstring(&cmd, "%t", pa->in ? "to" : "from");
 		chstring(&cmd, "%i", pa->id);
@@ -206,7 +206,7 @@ void do_alarms(void)
 	}
 	/* 2. Run alarm events */
 	for (pa = alarm_head; pa; pa = pa->next) {
-		if (pa->count<pa->safelimit || !(pa->reported & ALARM_FOUND)) {
+		if (pa->count < pa->safelimit || !(pa->reported & ALARM_FOUND)) {
 			if (!(pa->reported & ALARM_FOUND))
 				pa->finished = alarm_flaps;
 			else
@@ -270,19 +270,19 @@ void print_alarms(int fd)
 	/* 1. Print non-inhibited alarms */
 	for (pa = alarm_head; pa; pa = pa->next) {
 		if (pa->inhibited) continue;
-		snprintf(str, sizeof(str)-1, "500-DoS %s %s: %lu %s\n",
+		snprintf(str, sizeof(str)-1, "500-DoS %s %s: %llu %s\n",
 		         pa->in ? "to" : "from",
 		         printip(pa->ip, pa->preflen, pa->by, pa->in),
-			 pa->count, cp2str(pa->cp));
+			 (unsigned long long)pa->count, cp2str(pa->cp));
 		write(fd, str, strlen(str));
 	}
 	/* 2. Print inhibited alarms */
 	for (pa = alarm_head; pa; pa = pa->next) {
 		if (!pa->inhibited) continue;
-		snprintf(str, sizeof(str)-1, "500-DoS %s %s: %lu %s (inhibited)\n",
+		snprintf(str, sizeof(str)-1, "500-DoS %s %s: %llu %s (inhibited)\n",
 		         pa->in ? "to" : "from",
 		         printip(pa->ip, pa->preflen, pa->by, pa->in),
-			 pa->count, cp2str(pa->cp));
+			 (unsigned long long)pa->count, cp2str(pa->cp));
 		write(fd, str, strlen(str));
 	}
 	write(fd, "500\n", 4);

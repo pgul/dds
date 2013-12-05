@@ -254,7 +254,7 @@ int perl_alarm_event(struct alarm_t *pa, int event)
   return 1;
 }
 
-int perl_check(unsigned char *ip, u_long count, struct checktype *pc)
+int perl_check(unsigned char *ip, count_t count, struct checktype *pc)
 {
   char *func;
   int rc;
@@ -265,7 +265,7 @@ int perl_check(unsigned char *ip, u_long count, struct checktype *pc)
   if (perl_ok_check)
   {
     dSP;
-    if ((svcount = perl_get_sv("count", TRUE))) sv_setiv(svcount, count);
+    if ((svcount = perl_get_sv("count", TRUE))) sv_setiv(svcount, (IV)count);
     if ((svin    = perl_get_sv("in",    TRUE))) sv_setiv(svin,    pc->in);
     if ((svlimit = perl_get_sv("limit", TRUE))) sv_setiv(svlimit, pc->limit);
     if ((svsafelimit = perl_get_sv("safelimit", TRUE))) sv_setiv(svsafelimit, pc->safelimit);

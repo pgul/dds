@@ -73,7 +73,7 @@ struct checktype {
 	int preflen, in, last, alarmed;
 	cp_type checkpoint;
 	by_type by;
-	u_long limit, safelimit;
+	count_t limit, safelimit;
 	count_t count;
 	struct octet *octet;
 	struct checktype *next;
@@ -96,7 +96,7 @@ struct alarm_t
 	cp_type cp;
 	by_type by;
 	unsigned char ip[8];
-	u_long limit, safelimit, count;
+	count_t limit, safelimit, count;
 	char alarmcmd[CMDLEN], noalarmcmd[CMDLEN], contalarmcmd[CMDLEN];
 	char id[64];
 	struct alarm_t *next, *inhibited;
@@ -137,7 +137,7 @@ void check(time_t curtime);
 int  config(char *name);
 void reconfig(void);
 int  check_sockets(void);
-void exec_alarm(unsigned char *ip, u_long count, struct checktype *p);
+void exec_alarm(unsigned char *ip, count_t count, struct checktype *p);
 void do_alarms(void);
 char *cp2str(cp_type cp);
 char *by2str(by_type by);
@@ -167,7 +167,7 @@ char *oid2str(enum ifoid_t oid);
 int  perl_init(char *perlfile);
 void perl_done(void);
 int  perl_alarm_event(struct alarm_t *pa, int event);
-int  perl_check(unsigned char *ip, u_long count, struct checktype *pc);
+int  perl_check(unsigned char *ip, count_t count, struct checktype *pc);
 #else
 #define perl_done()
 #endif
