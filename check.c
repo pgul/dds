@@ -149,14 +149,14 @@ static void reprocess(struct checktype *pc, unsigned char *local_ip, int iplen)
 }
 
 void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
-       u_long len, int in, int vlan, int pkts, int flow,
+       count_t len, int in, int vlan, count_t pkts, int flow,
        struct checktype *recheck, unsigned char *recheck_local, int recheck_len)
 {
   u_long local=0, remote=0;
   struct checktype *pc;
   u_long src_ip, dst_ip;
   u_short dst_port = 0; /* not needed, but inhibit warning */
-  int val;
+  count_t val;
 
 #if 0
   u_long src_ip = *(u_long *)&(ip_hdr->ip_src);
@@ -210,13 +210,13 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
     putsnap(flow, in, src_mac, dst_mac, src_ip, dst_ip, len, vlan, pkts);
   if (!stdinsrc || !curtime) curtime = time(NULL);
   if (verb >= 9)
-    debug(9, "%s %u.%u.%u.%u->%u.%u.%u.%u: %lu bytes, %u pkts",
+    debug(9, "%s %u.%u.%u.%u->%u.%u.%u.%u: %llu bytes, %llu pkts",
           in ? "Inbound" : "Outbound",
           ((char *)&src_ip)[0], ((char *)&src_ip)[1],
           ((char *)&src_ip)[2], ((char *)&src_ip)[3],
           ((char *)&dst_ip)[0], ((char *)&dst_ip)[1],
           ((char *)&dst_ip)[2], ((char *)&dst_ip)[3],
-          len, pkts);
+          (unsigned long long)len, (unsigned long long)pkts);
   for (pc=checkhead; pc; pc=pc->next)
   {
     if (pc->in != in && pc->in != -1)
@@ -363,55 +363,62 @@ endofloop:
   if (last_check > curtime) last_check = curtime;
   if (!recheck && (recheck_arr || recheck_size == 0) && redo)
   { /* save for future recheck */
-    if (recheck_size == recheck_cur)
+    while (len > 0 || pkts > 0)
     {
-      if (curtime - last_check <= 2)
+      if (recheck_size == recheck_cur)
       {
-        if (check_interval <= 2)
-          recheck_size = recheck_size * 3 / 2;
+        if (curtime - last_check <= 2)
+        {
+          if (check_interval <= 2)
+            recheck_size = recheck_size * 3 / 2;
+          else
+            recheck_size = recheck_size * check_interval / 2;
+        } else
+        {
+          recheck_size = recheck_size * check_interval / (curtime - last_check);
+          recheck_size = recheck_size * 5 / 4;
+        }
+        if (recheck_size <= recheck_cur || recheck_cur == 0)
+          recheck_size = recheck_size * 5 / 4 + 64*1024;
+        recheck_arr = realloc(recheck_arr, recheck_size * sizeof(*recheck_arr));
+        if (recheck_arr == NULL)
+        {
+          warning("Cannot allocate memory for recheck: %s (%u bytes needed)",
+                  strerror(errno), recheck_size * sizeof(*recheck_arr));
+          break;
+        }
         else
-          recheck_size = recheck_size * check_interval / 2;
-      } else
-      {
-        recheck_size = recheck_size * check_interval / (curtime - last_check);
-        recheck_size = recheck_size * 5 / 4;
+          debug(1, "recheck array reallocated to %u bytes (%u entries)",
+                recheck_size * sizeof(*recheck_arr), recheck_size);
       }
-      if (recheck_size <= recheck_cur || recheck_cur == 0)
-        recheck_size = recheck_size * 5 / 4 + 64*1024;
-      recheck_arr = realloc(recheck_arr, recheck_size * sizeof(*recheck_arr));
-      if (recheck_arr == NULL)
-        warning("Cannot allocate memory for recheck: %s (%u bytes needed)",
-                strerror(errno), recheck_size * sizeof(*recheck_arr));
-      else
-        debug(1, "recheck array reallocated to %u bytes (%u entries)",
-              recheck_size * sizeof(*recheck_arr), recheck_size);
-    }
-    if (recheck_arr)
-    {
-      recheck_arr[recheck_cur].len  = len;
-      recheck_arr[recheck_cur].pkts = pkts;
-      recheck_arr[recheck_cur].in   = in;
-      recheck_arr[recheck_cur].proto = ip_hdr->ip_p;
-#if 0
-      recheck_arr[recheck_cur].s_addr = *(u_long *)&ip_hdr->ip_src;
-      recheck_arr[recheck_cur].d_addr = *(u_long *)&ip_hdr->ip_dst;
-#else
-      /* bug for 64-bit u_long */
-      memcpy(&(recheck_arr[recheck_cur].s_addr), &ip_hdr->ip_src, 4);
-      memcpy(&(recheck_arr[recheck_cur].d_addr), &ip_hdr->ip_dst, 4);
-#endif
-      if (ip_hdr->ip_p == IPPROTO_TCP)
+      if (recheck_arr)
       {
-        struct tcphdr *th = (struct tcphdr *)(ip_hdr+1);
-        recheck_arr[recheck_cur].d_port = th->th_dport;
-#ifdef TH_SYN
-        recheck_arr[recheck_cur].flags = th->th_flags;
+        recheck_arr[recheck_cur].len  = (len > 0xfffffffful ? 0xfffffffful : (uint32_t)len);
+        len -= recheck_arr[recheck_cur].len;
+        recheck_arr[recheck_cur].pkts = (pkts > 0xfffffful ? 0xfffffful : (uint32_t)pkts);
+        pkts -= recheck_arr[recheck_cur].pkts;
+        recheck_arr[recheck_cur].in   = in;
+        recheck_arr[recheck_cur].proto = ip_hdr->ip_p;
+#if 0
+        recheck_arr[recheck_cur].s_addr = *(u_long *)&ip_hdr->ip_src;
+        recheck_arr[recheck_cur].d_addr = *(u_long *)&ip_hdr->ip_dst;
 #else
-        recheck_arr[recheck_cur].flags = th->syn ? 0x02 : 0;
+        memcpy(&(recheck_arr[recheck_cur].s_addr), &ip_hdr->ip_src, 4);
+        memcpy(&(recheck_arr[recheck_cur].d_addr), &ip_hdr->ip_dst, 4);
 #endif
-      } else if (ip_hdr->ip_p == IPPROTO_UDP)
-        recheck_arr[recheck_cur].d_port=((struct udphdr *)(ip_hdr+1))->uh_dport;
-      recheck_cur++;
+        if (ip_hdr->ip_p == IPPROTO_TCP)
+        {
+          struct tcphdr *th = (struct tcphdr *)(ip_hdr+1);
+          recheck_arr[recheck_cur].d_port = th->th_dport;
+#ifdef TH_SYN
+          recheck_arr[recheck_cur].flags = th->th_flags;
+#else
+          recheck_arr[recheck_cur].flags = th->syn ? 0x02 : 0;
+#endif
+        } else if (ip_hdr->ip_p == IPPROTO_UDP)
+          recheck_arr[recheck_cur].d_port=((struct udphdr *)(ip_hdr+1))->uh_dport;
+        recheck_cur++;
+      }
     }
   }
   if (curtime - last_check >= check_interval && !recheck)

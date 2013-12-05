@@ -175,10 +175,10 @@ void hup(int signo)
   }
   else if (signo==SIGTERM || signo==SIGINT)
   { perl_done();
-    unlink(pidfile);
 #ifdef WITH_PCAP
     if (servpid) kill(servpid, SIGTERM);
 #endif
+    unlink(pidfile);
     _exit(0);
   }
   else if (signo==SIGHUP)

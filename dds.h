@@ -83,7 +83,7 @@ struct checktype {
 
 struct recheck_t {
 	uint32_t s_addr, d_addr;
-	int len;
+	uint32_t len;
 	int in:8;
 	unsigned int pkts:24;
 	uint16_t d_port;
@@ -130,8 +130,8 @@ extern int servpipe[2];
 extern char *piface;
 #endif
 
-void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, u_long len,
-             int in, int vlan, int pkts, int flow,
+void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr, count_t len,
+             int in, int vlan, count_t pkts, int flow,
              struct checktype *recheck, unsigned char *local_ip, int re_len);
 void check(time_t curtime);
 int  config(char *name);
@@ -157,7 +157,7 @@ void print_alarms(int fd);
 char *printoctets(unsigned char *octets, int length);
 void switchsignals(int how);
 #ifdef WITH_PCAP
-int get_mac(const char *iface, unsigned char *mac);
+int  get_mac(const char *iface, unsigned char *mac);
 #endif
 #ifdef DO_SNMP
 char *oid2str(enum ifoid_t oid);

@@ -417,9 +417,9 @@ static void add_flow(struct router_t *pr, int input, int output,
   }
   if (output == 0 && !processfiltered) return; /* already filtered? */
   if (((in & 1) && ((in & 2) == 0)) || (((in & 5) == 0) && ((in & 10) == 0))) /* from uplink to not uplink or from downlink to downlink */
-    add_pkt(NULL, NULL, iphdr, bytes * pr->sampled, 1, 0, pkts * pr->sampled, 1, NULL, 0, 0);
+    add_pkt(NULL, NULL, iphdr, (count_t)bytes * pr->sampled, 1, 0, (count_t)pkts * pr->sampled, 1, NULL, 0, 0);
   if ((((in & 5) == 0) && ((in & 10) == 0)) || (((in & 1) == 0) && (in & 2))) /* from downlink to downlink or from not uplink to uplink */
-    add_pkt(NULL, NULL, iphdr, bytes * pr->sampled, 0, 0, pkts * pr->sampled, 1, NULL, 0, 0);
+    add_pkt(NULL, NULL, iphdr, (count_t)bytes * pr->sampled, 0, 0, (count_t)pkts * pr->sampled, 1, NULL, 0, 0);
   if (in != 3 && (input != output || input == 0)) return;
   /* from uplink to uplink or ping-pong */
   strncpy(ip_src, inet_ntoa(iphdr->ip_src), sizeof(ip_src));
