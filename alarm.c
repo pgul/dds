@@ -124,7 +124,7 @@ void exec_alarm(unsigned char *ip, count_t count, struct checktype *pc)
 	snprintf(pa->id, sizeof(pa->id), "dds-%08x-%08x-%08lx",
 	         (unsigned int)getpid(), seq, 
 #ifdef WITH_PCAP
-	         my_mac[0] ? *(u_long *)(my_mac+2) :
+	         my_mac[0] ? (u_long)*(uint32_t *)(my_mac+2) :
 #endif
 	         (u_long)flowip);
 	pa->next = alarm_head;
@@ -188,9 +188,9 @@ void do_alarms(void)
 			if (pa->by == BYNONE) {
 				if (pa->preflen > ppa->preflen) continue;
 				if (pa->preflen) {
-					u_long ip, mask;
-					mask = 0xfffffffful << (32-pa->preflen);
-					/* if (*(u_long *)ppa->ip & htonl(mask) != *(u_long *)pa->ip) -- warning */
+					uint32_t ip, mask;
+					mask = 0xfffffffful << (32 - pa->preflen);
+					/* if (*(uint32_t *)ppa->ip & htonl(mask) != *(uint32_t *)pa->ip) -- warning */
 					/* assert(iplen >= sizeof(ip)) */
 					memcpy(&ip, ppa->ip, iplen);
 					ip &= htonl(mask);

@@ -39,7 +39,7 @@ int recheck_cur, recheck_size;
 static unsigned long leafs, nodes, emptyleafs, emptynodes, semileafs;
 
 static void putsnap(int flow, int in, u_char *src_mac, u_char *dst_mac, 
-                    u_long src_ip, u_long dst_ip, int len, int vlan, int pkts)
+                    uint32_t src_ip, uint32_t dst_ip, int len, int vlan, int pkts)
 {
   char str_src_ip[20], str_dst_ip[20], pvlan[20];
 
@@ -152,17 +152,16 @@ void add_pkt(u_char *src_mac, u_char *dst_mac, struct ip *ip_hdr,
        count_t len, int in, int vlan, count_t pkts, int flow,
        struct checktype *recheck, unsigned char *recheck_local, int recheck_len)
 {
-  u_long local=0, remote=0;
+  uint32_t local=0, remote=0;
   struct checktype *pc;
-  u_long src_ip, dst_ip;
-  u_short dst_port = 0; /* not needed, but inhibit warning */
+  uint32_t src_ip, dst_ip;
+  uint16_t dst_port = 0; /* not needed, but inhibit warning */
   count_t val;
 
 #if 0
-  u_long src_ip = *(u_long *)&(ip_hdr->ip_src);
-  u_long dst_ip = *(u_long *)&(ip_hdr->ip_dst);
+  uint32_t src_ip = *(uint32_t *)&(ip_hdr->ip_src);
+  uint32_t dst_ip = *(uint32_t *)&(ip_hdr->ip_dst);
 #else
-  /* ! bug for 64-bit u_long ! */
   memcpy(&src_ip, &(ip_hdr->ip_src), sizeof(src_ip));
   memcpy(&dst_ip, &(ip_hdr->ip_dst), sizeof(dst_ip));
 #endif
@@ -400,8 +399,8 @@ endofloop:
         recheck_arr[recheck_cur].in   = in;
         recheck_arr[recheck_cur].proto = ip_hdr->ip_p;
 #if 0
-        recheck_arr[recheck_cur].s_addr = *(u_long *)&ip_hdr->ip_src;
-        recheck_arr[recheck_cur].d_addr = *(u_long *)&ip_hdr->ip_dst;
+        recheck_arr[recheck_cur].s_addr = *(uint32_t *)&ip_hdr->ip_src;
+        recheck_arr[recheck_cur].d_addr = *(uint32_t *)&ip_hdr->ip_dst;
 #else
         memcpy(&(recheck_arr[recheck_cur].s_addr), &ip_hdr->ip_src, 4);
         memcpy(&(recheck_arr[recheck_cur].d_addr), &ip_hdr->ip_dst, 4);
