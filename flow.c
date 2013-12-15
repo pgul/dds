@@ -445,9 +445,9 @@ static void add_flow(struct router_t *pr, int input, int output,
 #endif
   warning("%s:%s%s%s input %u%s output %u%s pkt %s->%s",
            (input == output) ? "Ping-pong" : "Packet from upstream to upstream",
-		   pr->addr == (u_long)-1 ? "" : " router ",
-		   pr->addr == (u_long)-1 ? "" : printoctets((unsigned char *)&pr->addr, 4),
-		   pr->addr == (u_long)-1 ? "" : ",",
+		   pr->addr == (uint32_t)-1 ? "" : " router ",
+		   pr->addr == (uint32_t)-1 ? "" : printoctets((unsigned char *)&pr->addr, 4),
+		   pr->addr == (uint32_t)-1 ? "" : ",",
            input, sinput, output, soutput, ip_src, ip_dst);
 }
 
@@ -548,7 +548,7 @@ void recv_flow(void)
     remote_addr = &queue[head].remote_addr;
     for (pr=routers->next; pr; pr=pr->next)
     {
-      if (pr->addr == (u_long)-1 || pr->addr == remote_addr->sin_addr.s_addr)
+      if (pr->addr == (uint32_t)-1 || pr->addr == remote_addr->sin_addr.s_addr)
         break;
     }
     n = queue[head].n;

@@ -210,7 +210,7 @@ static int parse_line(char *str, char *fname, int nline)
     /* get router address */
     if ((he=gethostbyname(p))==0 || he->h_addr_list[0]==NULL)
     { if (strcmp(p, "any")==0)
-        cur_router->addr=(u_long)-1;
+        cur_router->addr=(uint32_t)-1;
       else
         warning("Router %s not found (%s:%d)", p, fname, nline);
       return 0;
@@ -616,7 +616,7 @@ int config(char *name)
 #endif
   old_routers = routers;
   cur_router = routers = calloc(1, sizeof(struct router_t));
-  cur_router->addr = (u_long)-1;
+  cur_router->addr = (uint32_t)-1;
   cur_router->sampled = 1;
   if (!pflow) old_netflow = strdup(netflow);
   netflow[0] = '\0';
@@ -979,7 +979,7 @@ static unsigned short get_ifindex(struct router_t *router, enum ifoid_t oid, cha
   char val[256], *p;
   struct router_t *crouter;
 
-  if (router->addr==(u_long)-1)
+  if (router->addr==(uint32_t)-1)
   { warning("Router not specified for %s", oid2str(oid));
     return (unsigned short)-2; /* not matched for any interface */
   }
