@@ -53,7 +53,7 @@ case x$withval in
     LIBS="$LIBS -lpcap"
     AC_MSG_CHECKING(for libpcap)
     AC_TRY_LINK([],[pcap_open_live();],AC_MSG_RESULT(yes); have_pcap=yes,
-         AC_MSG_RESULT(no); have_pcap=no)
+         AC_MSG_RESULT(no); LIBS=$OLD_LIBS; have_pcap=no)
     case x$have_pcap in
       xno)
         case x$do_pcap in
