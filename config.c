@@ -514,7 +514,8 @@ static int parse_file(FILE *f, char *fname)
         }
         *p1='\0';
       } else
-      { for (p1=p; *p1 && !isspace(*p1); p1++);
+      {
+        for (p1=p; *p1 && !isspace(*p1); p1++);
         *p1='\0';
       }
       if ((finc=fopen(p, "r")) == NULL)
