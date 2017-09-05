@@ -677,15 +677,19 @@ static void vlogwrite(int priority, int display, char *format, va_list ap)
                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
   if (display) {
+    va_list ap1;
+    va_copy(ap1, ap);
     f = (priority == LOG_WARNING || priority == LOG_ERR) ? stderr : stdout;
     if (priority == LOG_WARNING) fprintf(f, "Warning: ");
-    vfprintf(f, format, ap);
+    vfprintf(f, format, ap1);
     fprintf(f, "\n");
     fflush(f);
   }
 
   if (strcmp(logname, "syslog") == 0) {
-    vsyslog(priority, format, ap);
+    va_list ap2;
+    va_copy(ap2, ap);
+    vsyslog(priority, format, ap2);
     return;
   }
 
